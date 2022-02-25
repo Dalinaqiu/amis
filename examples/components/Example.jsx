@@ -74,7 +74,14 @@ import LogicEventActionSchema from './EventAction/Logic';
 import StopEventActionSchema from './EventAction/Stop';
 import DataFlowEventActionSchema from './EventAction/DataFlow';
 import InputEventSchema from './EventAction/InputEvent';
+import DateEventSchema from './EventAction/DateEvent';
+import SwitchEventSchema from './EventAction/SwitchEvent';
+import TabsEventSchema from './EventAction/TabsEvent';
 import UploadEventSchema from './EventAction/UploadEvent';
+import SelectEventActionSchema from './EventAction/SelectEvent';
+import ButtonEventActionSchema from './EventAction/ButtonEvent';
+import InputRatingEventSchema from './EventAction/InputRatingEvent';
+import ExcelEventSchema from './EventAction/ExcelEvent';
 import WizardSchema from './Wizard';
 import ChartSchema from './Chart';
 import EChartsEditorSchema from './ECharts';
@@ -97,6 +104,8 @@ import Tab3Schema from './Tabs/Tab3';
 import TestComponent from './Test';
 
 import {normalizeLink} from '../../src/utils/normalizeLink';
+import {Switch} from 'react-router-dom';
+import {navigations2route} from './App';
 
 export const examples = [
   {
@@ -528,6 +537,11 @@ export const examples = [
             component: makeSchemaRenderer(CmptEventActionSchema),
             children: [
               {
+                label: '按钮类组件',
+                path: '/examples/event/button',
+                component: makeSchemaRenderer(ButtonEventActionSchema)
+              },
+              {
                 label: '输入类组件',
                 path: '/examples/event/input',
                 component: makeSchemaRenderer(InputEventSchema)
@@ -536,6 +550,36 @@ export const examples = [
                 label: '上传类组件',
                 path: '/examples/event/upload',
                 component: makeSchemaRenderer(UploadEventSchema)
+              },
+              {
+                label: '下拉选择类',
+                path: '/examples/event/select',
+                component: makeSchemaRenderer(SelectEventActionSchema)
+              },
+              {
+                label: '时间类组件',
+                path: 'examples/event/date',
+                component: makeSchemaRenderer(DateEventSchema)
+              },
+              {
+                label: '开关组件',
+                path: 'examples/event/switch',
+                component: makeSchemaRenderer(SwitchEventSchema)
+              },
+              {
+                label: '选项卡组件',
+                path: 'examples/event/tabs',
+                component: makeSchemaRenderer(TabsEventSchema)
+              },
+              {
+                label: '评分组件',
+                path: 'examples/event/input-rating',
+                component: makeSchemaRenderer(InputRatingEventSchema)
+              },
+              {
+                label: 'excel',
+                path: 'examples/event/excel',
+                component: makeSchemaRenderer(ExcelEventSchema)
               }
             ]
           },
@@ -686,16 +730,23 @@ export default class Example extends React.PureComponent {
 
   render() {
     return (
-      <>
-        {React.cloneElement(this.props.children, {
+      <Switch>
+        {/* {React.cloneElement(this.props.children, {
           ...this.props.children.props,
           theme: this.props.theme,
           classPrefix: this.props.classPrefix,
           locale: this.props.locale,
           viewMode: this.props.viewMode,
           offScreen: this.props.offScreen
+        })} */}
+        {navigations2route(examples, {
+          theme: this.props.theme,
+          classPrefix: this.props.classPrefix,
+          locale: this.props.locale,
+          viewMode: this.props.viewMode,
+          offScreen: this.props.offScreen
         })}
-      </>
+      </Switch>
     );
   }
 }
