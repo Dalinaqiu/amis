@@ -11,7 +11,8 @@ import {
   guid,
   isEmpty,
   autobind,
-  getVariable
+  getVariable,
+  createObject
 } from '../../utils/helper';
 import {IIRendererStore, IRendererStore} from '../../store';
 import {ScopedContext, IScopedContext} from '../../Scoped';
@@ -63,6 +64,7 @@ export interface ControlOutterProps extends RendererProps {
     submit?: boolean,
     changePristine?: boolean
   ) => void;
+  formItemDispatchEvent: (type: string, data: any) => void;
 }
 
 export interface ControlProps {
@@ -131,7 +133,8 @@ export function wrapControl<
                 validateApi,
                 minLength,
                 maxLength,
-                validateOnChange
+                validateOnChange,
+                label
               }
             } = this.props;
 
@@ -177,7 +180,8 @@ export function wrapControl<
               validateApi,
               minLength,
               maxLength,
-              validateOnChange
+              validateOnChange,
+              label
             });
 
             // issue 这个逻辑应该在 combo 里面自己实现。
@@ -265,7 +269,10 @@ export function wrapControl<
                   'selectFirst',
                   'autoFill',
                   'clearValueOnHidden',
-                  'validateApi'
+                  'validateApi',
+                  'minLength',
+                  'maxLength',
+                  'label'
                 ],
                 prevProps.$schema,
                 props.$schema
@@ -288,8 +295,9 @@ export function wrapControl<
                 autoFill: props.$schema.autoFill,
                 clearValueOnHidden: props.$schema.clearValueOnHidden,
                 validateApi: props.$schema.validateApi,
-                minLength: props.minLength,
-                maxLength: props.maxLength
+                minLength: props.$schema.minLength,
+                maxLength: props.$schema.maxLength,
+                label: props.$schema.label
               });
             }
 
@@ -353,7 +361,7 @@ export function wrapControl<
               this.model.clearValueOnHidden &&
                 this.model.form?.deleteValueByName(this.model.name);
 
-              rootStore.removeStore(this.model);
+              isAlive(rootStore) && rootStore.removeStore(this.model);
             }
             delete this.model;
           }
@@ -399,20 +407,16 @@ export function wrapControl<
             this.control = control;
             const scoped = this.context as IScopedContext;
 
-            if (!this.control) {
-              return;
-            }
-
             if (control) {
               scoped.registerComponent(this.control);
-            } else {
+            } else if (originRef) {
               scoped.unRegisterComponent(originRef);
             }
           }
 
-          validate() {
-            const {formStore: form, data} = this.props;
-
+          async validate() {
+            const {formStore: form, data, formItemDispatchEvent} = this.props;
+            let result;
             if (this.model) {
               if (
                 this.model.unique &&
@@ -423,12 +427,24 @@ export function wrapControl<
                 const group = combo.uniques.get(
                   this.model.name
                 ) as IUniqueGroup;
-                group.items.forEach(item => item.validate(data));
+                const validPromises = group.items.map(item =>
+                  item.validate(data)
+                );
+                result = await Promise.all(validPromises);
               } else {
-                this.model.validate(data, this.hook);
-                form
+                const validPromises = form
                   ?.getItemsByName(this.model.name)
-                  .forEach(item => item !== this.model && item.validate(data));
+                  .map(item => item.validate(data));
+                if (validPromises && validPromises.length) {
+                  result = await Promise.all(validPromises);
+                }
+              }
+            }
+            if (result && result.length) {
+              if (result.indexOf(false) > -1) {
+                formItemDispatchEvent('formItemValidateError', data);
+              } else {
+                formItemDispatchEvent('formItemValidateSucc', data);
               }
             }
           }
@@ -539,8 +555,8 @@ export function wrapControl<
 
             if (
               // 如果配置了 minLength 或者 maxLength 就切成及时验证
-              this.model.rules.minLength ||
-              this.model.rules.maxLength ||
+              // this.model.rules.minLength ||
+              // this.model.rules.maxLength ||
               validateOnChange === true ||
               (validateOnChange !== false && (formSubmited || validated))
             ) {

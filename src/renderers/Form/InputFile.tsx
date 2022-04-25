@@ -2,8 +2,6 @@ import React from 'react';
 import {FormItem, FormControlProps, FormBaseControl} from './Item';
 import find from 'lodash/find';
 import isPlainObject from 'lodash/isPlainObject';
-// @ts-ignore
-import mapLimit from 'async/mapLimit';
 import ImageControl from './InputImage';
 import {Payload, ApiObject, ApiString, Action} from '../../types';
 import {filter} from '../../utils/tpl';
@@ -28,6 +26,7 @@ import {
   SchemaUrlPath
 } from '../../Schema';
 import merge from 'lodash/merge';
+import omit from 'lodash/omit';
 
 /**
  * File 文件上传控件
@@ -81,6 +80,11 @@ export interface FileControlSchema extends FormBaseControl {
    * @default 5242880
    */
   chunkSize?: number;
+
+  /**
+   * 分块上传的并发数
+   */
+  concurrency?: number;
 
   /**
    * 分割符
@@ -301,6 +305,7 @@ export default class FileControl extends React.Component<FileProps, FileState> {
     startChunkApi: '/api/upload/startChunk',
     chunkApi: '/api/upload/chunk',
     finishChunkApi: '/api/upload/finishChunk',
+    concurrency: 3,
     accept: '',
     multiple: false,
     autoUpload: true,
@@ -518,7 +523,6 @@ export default class FileControl extends React.Component<FileProps, FileState> {
         }
       }
     );
-    this.dispatchEvent('change');
   }
 
   handleDropRejected(
@@ -723,7 +727,7 @@ export default class FileControl extends React.Component<FileProps, FileState> {
           uploading: false
         },
         () => {
-          this.onChange(!!this.resolve, false);
+          this.onChange(!!this.resolve);
 
           if (this.resolve) {
             this.resolve(
@@ -817,7 +821,11 @@ export default class FileControl extends React.Component<FileProps, FileState> {
         let value =
           (ret.data as any).value || (ret.data as any).url || ret.data;
 
-        const dispatcher = await this.dispatchEvent('success', file);
+        const dispatcher = await this.dispatchEvent('success', {
+          ...file,
+          value,
+          state: 'uploaded'
+        });
         if (dispatcher?.prevented) {
           return;
         }
@@ -867,7 +875,7 @@ export default class FileControl extends React.Component<FileProps, FileState> {
     });
   }
 
-  async onChange(changeImmediately?: boolean, isFileChange = true) {
+  async onChange(changeImmediately?: boolean) {
     const {
       multiple,
       onChange,
@@ -901,11 +909,10 @@ export default class FileControl extends React.Component<FileProps, FileState> {
     } else {
       value = typeof resetValue === 'undefined' ? '' : resetValue;
     }
-    if (isFileChange) {
-      const dispatcher = await this.dispatchEvent('change');
-      if (dispatcher?.prevented) {
-        return;
-      }
+
+    const dispatcher = await this.dispatchEvent('change');
+    if (dispatcher?.prevented) {
+      return;
     }
 
     onChange((this.emitValue = value), undefined, changeImmediately);
@@ -913,13 +920,16 @@ export default class FileControl extends React.Component<FileProps, FileState> {
   }
 
   syncAutoFill() {
-    const {autoFill, multiple, onBulkChange, data} = this.props;
-    if (!isEmpty(autoFill) && onBulkChange) {
+    const {autoFill, multiple, onBulkChange, data, name} = this.props;
+    // 排除自身的字段，否则会无限更新state
+    const excludeSelfAutoFill = omit(autoFill, name || '');
+
+    if (!isEmpty(excludeSelfAutoFill) && onBulkChange) {
       const files = this.state.files.filter(
         file => ~['uploaded', 'init', 'ready'].indexOf(file.state as string)
       );
       const toSync = dataMapping(
-        autoFill,
+        excludeSelfAutoFill,
         multiple
           ? {
               items: files
@@ -973,6 +983,7 @@ export default class FileControl extends React.Component<FileProps, FileState> {
     onProgress: (progress: number) => void
   ): Promise<Payload> {
     const chunkSize = config.chunkSize || 5 * 1024 * 1024;
+    const concurrency = this.props.concurrency;
     const self = this;
     let startProgress = 0.2;
     let endProgress = 0.9;
@@ -1014,7 +1025,7 @@ export default class FileControl extends React.Component<FileProps, FileState> {
 
       self._send(file, startApi).then(startChunk).catch(reject);
 
-      function startChunk(ret: Payload) {
+      async function startChunk(ret: Payload) {
         onProgress(startProgress);
         const tasks = getTasks(file);
         progressArr = tasks.map(() => 0);
@@ -1030,18 +1041,25 @@ export default class FileControl extends React.Component<FileProps, FileState> {
           total: tasks.length
         };
 
-        mapLimit(
-          tasks,
-          3,
-          uploadPartFile(state, config),
-          function (err: any, results: any) {
-            if (err) {
-              reject(err);
-            } else {
-              finishChunk(results, state);
-            }
-          }
-        );
+        let results: any[] = [];
+        while (tasks.length) {
+          const res = await Promise.all(
+            tasks.splice(0, concurrency).map(async task => {
+              return await uploadPartFile(state, config)(
+                task,
+                (err: any, value: any) => {
+                  if (err) {
+                    reject(err);
+                    throw new Error(err);
+                  }
+                  return value;
+                }
+              );
+            })
+          );
+          results = results.concat(res);
+        }
+        finishChunk(results, state);
       }
 
       function updateProgress(partNumber: number, progress: number) {
@@ -1216,11 +1234,19 @@ export default class FileControl extends React.Component<FileProps, FileState> {
 
   async dispatchEvent(e: string, data?: Record<string, any>) {
     const {dispatchEvent} = this.props;
-    data = data || this.state.files;
+    const getEventData = (item: Record<string, any>) => ({
+      name: item.path || item.name,
+      value: item.value,
+      state: item.state,
+      error: item.error
+    });
+    const value = data
+      ? getEventData(data)
+      : this.state.files.map(item => getEventData(item));
     return dispatchEvent(
       e,
       createObject(this.props.data, {
-        file: data
+        file: value
       })
     );
   }
@@ -1312,7 +1338,7 @@ export default class FileControl extends React.Component<FileProps, FileState> {
             >
               <input disabled={disabled} {...getInputProps()} />
 
-              {drag ? (
+              {drag || isDragActive ? (
                 <div
                   className={cx('FileControl-acceptTip')}
                   onClick={this.handleSelect}
@@ -1330,8 +1356,7 @@ export default class FileControl extends React.Component<FileProps, FileState> {
                   <Button
                     level="default"
                     disabled={disabled}
-                    className={cx('FileControl-selectBtn', {
-                      btnClassName,
+                    className={cx('FileControl-selectBtn', btnClassName, {
                       'is-disabled':
                         multiple && !!maxLength && files.length >= maxLength
                     })}

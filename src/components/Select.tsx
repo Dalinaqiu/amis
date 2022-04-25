@@ -112,7 +112,13 @@ export function value2array(
     }
 
     return value
-      .map((value: any) => expandValue(value, props.options, props.valueField))
+      .map(
+        (value: any) =>
+          expandValue(value, props.options, props.valueField) ||
+          (isObject(value) && value.hasOwnProperty(props.valueField || 'value')
+            ? value
+            : undefined)
+      )
       .filter((item: any) => item) as Array<Option>;
   } else if (Array.isArray(value)) {
     value = value[0];
@@ -123,7 +129,12 @@ export function value2array(
     props.options,
     props.valueField
   );
-  return expandedValue ? [expandedValue] : [];
+  return expandedValue
+    ? [expandedValue]
+    : isObject(value) &&
+      (value as Option).hasOwnProperty(props.valueField || 'value')
+    ? [value as Option]
+    : [];
 }
 
 export function expandValue(
@@ -462,6 +473,10 @@ export class Select extends React.Component<SelectProps, SelectState> {
 
   @autobind
   onFocus(e: any) {
+    const {simpleValue} = this.props;
+    const {selection} = this.state;
+    const value = simpleValue ? selection.map(item => item.value) : selection;
+    
     this.props.disabled ||
       this.state.isOpen ||
       this.setState(
@@ -471,16 +486,26 @@ export class Select extends React.Component<SelectProps, SelectState> {
         this.focus
       );
 
-    this.props.onFocus && this.props.onFocus(e);
+    this.props.onFocus && this.props.onFocus({
+      ...e,
+      value
+    });
   }
 
   @autobind
   onBlur(e: any) {
+    const {simpleValue} = this.props;
+    const {selection} = this.state;
+    const value = simpleValue ? selection.map(item => item.value) : selection;
+
     this.setState({
       isFocused: false
     });
 
-    this.props.onBlur && this.props.onBlur(e);
+    this.props.onBlur && this.props.onBlur({
+      ...e,
+      value
+    });
   }
 
   @autobind
@@ -692,7 +717,6 @@ export class Select extends React.Component<SelectProps, SelectState> {
       multiple,
       valuesNoWrap,
       placeholder,
-      classPrefix: ns,
       labelField,
       disabled,
       translate: __
@@ -703,7 +727,7 @@ export class Select extends React.Component<SelectProps, SelectState> {
 
     if (!selection.length) {
       return (
-        <div key="placeholder" className={`${ns}Select-placeholder`}>
+        <div key="placeholder" className={cx('Select-placeholder')}>
           {__(placeholder)}
         </div>
       );
@@ -712,8 +736,10 @@ export class Select extends React.Component<SelectProps, SelectState> {
     return selection.map((item, index) => {
       if (!multiple) {
         return (
-          <div className={cx('Select-value', {
-            'is-disabled': disabled
+          <div
+            className={cx('Select-value', {
+              'is-disabled': disabled,
+              'is-invalid': item.__unmatched
             })}
             key={index}
           >
@@ -733,8 +759,13 @@ export class Select extends React.Component<SelectProps, SelectState> {
           trigger={'hover'}
           key={index}
         >
-          <div className={`${ns}Select-value`}>
-            <span className={`${ns}Select-valueLabel`}>
+          <div
+            className={cx('Select-value', {
+              'is-disabled': disabled,
+              'is-invalid': item.__unmatched
+            })}
+          >
+            <span className={cx('Select-valueLabel')}>
               {item[labelField || 'label']}
             </span>
             <span
@@ -866,7 +897,7 @@ export class Select extends React.Component<SelectProps, SelectState> {
           ) : null}
 
           {renderMenu ? (
-            checkAll || multiple ? (
+            multiple ? (
               <Checkbox
                 checked={checked}
                 trueValue={item.value}
@@ -896,7 +927,7 @@ export class Select extends React.Component<SelectProps, SelectState> {
                 index
               })
             )
-          ) : checkAll || multiple ? (
+          ) : multiple ? (
             <Checkbox
               checked={checked}
               trueValue={item.value}
@@ -1125,7 +1156,9 @@ export class Select extends React.Component<SelectProps, SelectState> {
               </div>
               {clearable &&
               !disabled &&
-              (Array.isArray(value) ? value.length : value !== resetValue) ? (
+              (Array.isArray(value)
+                ? value.length
+                : value != null && value !== resetValue) ? (
                 <a onClick={this.clearValue} className={cx('Select-clear')}>
                   <Icon icon="close-small" className="icon" />
                 </a>
@@ -1134,6 +1167,7 @@ export class Select extends React.Component<SelectProps, SelectState> {
                 <Spinner
                   show
                   icon="reload"
+                  size="sm"
                   spinnerClassName={cx('Select-spinner')}
                 />
               ) : null}

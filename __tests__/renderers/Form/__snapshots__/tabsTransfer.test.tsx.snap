@@ -71,10 +71,11 @@ exports[`Renderer:tabs-transfer 1`] = `
                         class="cxd-Transfer-select"
                       >
                         <div
-                          class="cxd-Tabs cxd-Tabs--card cxd-TabsTransfer-tabs"
+                          class="cxd-Tabs cxd-Tabs--line cxd-TabsTransfer-tabs"
                         >
                           <div
                             class="cxd-Tabs-linksContainer-wrapper"
+                            style="position: relative;"
                           >
                             <div
                               class="cxd-Tabs-linksContainer"
@@ -89,39 +90,62 @@ exports[`Renderer:tabs-transfer 1`] = `
                                   <li
                                     class="cxd-Tabs-link is-active"
                                   >
-                                    <a>
+                                    <a
+                                      title="成员"
+                                    >
                                       成员
                                     </a>
                                   </li>
                                   <li
                                     class="cxd-Tabs-link"
                                   >
-                                    <a>
+                                    <a
+                                      title="用户"
+                                    >
                                       用户
                                     </a>
                                   </li>
-                                  <span
-                                    class="cxd-TabsTransfer-tabsMid"
-                                  />
-                                  <div
-                                    class="cxd-SearchBox"
-                                  >
-                                    <input
-                                      autocomplete="off"
-                                      placeholder="请输入"
-                                      value=""
-                                    />
-                                    <a
-                                      class="cxd-SearchBox-activeBtn"
-                                    >
-                                      <icon-mock
-                                        classname="icon icon-search"
-                                        icon="search"
-                                      />
-                                    </a>
-                                  </div>
                                 </ul>
                               </div>
+                            </div>
+                            <div
+                              class="resize-sensor"
+                              style="position: absolute; left: 0px; top: 0px; right: 0px; bottom: 0px; overflow: scroll; z-index: -1; visibility: hidden;"
+                            >
+                              
+  
+                              <div
+                                class="resize-sensor-expand"
+                                style="position: absolute; left: 0; top: 0; right: 0; bottom: 0; overflow: scroll; z-index: -1; visibility: hidden;"
+                              >
+                                
+    
+                                <div
+                                  style="position: absolute; left: 0px; top: 0px; width: 10px; height: 10px;"
+                                />
+                                
+  
+                              </div>
+                              
+  
+                              <div
+                                class="resize-sensor-shrink"
+                                style="position: absolute; left: 0; top: 0; right: 0; bottom: 0; overflow: scroll; z-index: -1; visibility: hidden;"
+                              >
+                                
+    
+                                <div
+                                  style="position: absolute; left: 0; top: 0; width: 200%; height: 200%"
+                                />
+                                
+  
+                              </div>
+                              
+  
+                              <div
+                                class="resize-sensor-appear"
+                                style="position: absolute; left: 0; top: 0; right: 0; bottom: 0; overflow: scroll; z-index: -1; visibility: hidden;animation-name: apearSensor; animation-duration: 0.2s;"
+                              />
                             </div>
                           </div>
                           <div
@@ -130,6 +154,25 @@ exports[`Renderer:tabs-transfer 1`] = `
                             <div
                               class="in is-active cxd-Tabs-pane cxd-TabsTransfer-tab"
                             >
+                              <div
+                                class="cxd-TabsTransfer-search"
+                              >
+                                <div
+                                  class="cxd-InputBox"
+                                >
+                                  <input
+                                    placeholder="请输入关键字"
+                                    size="12"
+                                    theme="cxd"
+                                    type="text"
+                                    value=""
+                                  />
+                                  <icon-mock
+                                    classname="icon icon-search"
+                                    icon="search"
+                                  />
+                                </div>
+                              </div>
                               <div
                                 class="cxd-TreeSelection cxd-Transfer-checkboxes"
                               >

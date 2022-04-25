@@ -52,11 +52,13 @@ import {DialogSchema, DialogSchemaBase} from './renderers/Dialog';
 import {DrawerSchema} from './renderers/Drawer';
 import {SearchBoxSchema} from './renderers/SearchBox';
 import {SparkLineSchema} from './renderers/SparkLine';
+import {TooltipWrapperSchema} from './renderers/TooltipWrapper';
 import {PaginationWrapperSchema} from './renderers/PaginationWrapper';
 import {PaginationSchema} from './renderers/Pagination';
 import {AnchorNavSchema} from './renderers/AnchorNav';
 import {AvatarSchema} from './renderers/Avatar';
 import {StepsSchema} from './renderers/Steps';
+import {SpinnerSchema} from './renderers/Spinner';
 import {TimelineSchema} from './renderers/Timeline';
 import {ArrayControlSchema} from './renderers/Form/InputArray';
 import {ButtonGroupControlSchema} from './renderers/Form/ButtonGroupSelect';
@@ -115,6 +117,8 @@ import {UUIDControlSchema} from './renderers/Form/UUID';
 import {FormControlSchema} from './renderers/Form/Control';
 import {TransferPickerControlSchema} from './renderers/Form/TransferPicker';
 import {TabsTransferPickerControlSchema} from './renderers/Form/TabsTransferPicker';
+import {JSONSchemaEditorControlSchema} from './renderers/Form/JSONSchemaEditor';
+import {TableSchemaV2} from './renderers/Table-v2';
 
 // 每加个类型，这补充一下。
 export type SchemaType =
@@ -130,6 +134,7 @@ export type SchemaType =
   | 'button-toolbar'
   | 'breadcrumb'
   | 'card'
+  | 'card2'
   | 'cards'
   | 'carousel'
   | 'chart'
@@ -149,6 +154,7 @@ export type SchemaType =
   | 'month'
   | 'static-month' // 这个几个跟表单项同名，再form下面用必须带前缀 static-
   | 'dialog'
+  | 'spinner'
   | 'divider'
   | 'dropdown-button'
   | 'drawer'
@@ -164,6 +170,7 @@ export type SchemaType =
   | 'static-image' // 这个几个跟表单项同名，再form下面用必须带前缀 static-
   | 'images'
   | 'static-images' // 这个几个跟表单项同名，再form下面用必须带前缀 static-
+  | 'json-schema-editor'
   | 'json'
   | 'static-json' // 这个几个跟表单项同名，再form下面用必须带前缀 static-
   | 'link'
@@ -194,6 +201,7 @@ export type SchemaType =
   | 'switch'
   | 'table'
   | 'static-table' // 这个几个跟表单项同名，再form下面用必须带前缀 static-
+  | 'table-v2'
   | 'tabs'
   | 'html'
   | 'tpl'
@@ -326,12 +334,14 @@ export type SchemaType =
   | 'table-view'
   | 'portlet'
   | 'grid-nav'
+  | 'tag'
 
   // 原生 input 类型
   | 'native-date'
   | 'native-time'
   | 'native-number'
-  | 'code';
+  | 'code'
+  | 'tooltip-wrapper';
 
 export type SchemaObject =
   | PageSchema
@@ -382,13 +392,16 @@ export type SchemaObject =
   | ServiceSchema
   | SparkLineSchema
   | StatusSchema
+  | SpinnerSchema
   | TableSchema
+  | TableSchemaV2
   | TabsSchema
   | TasksSchema
   | VBoxSchema
   | VideoSchema
   | WizardSchema
   | WrapperSchema
+  | TooltipWrapperSchema
   | FormSchema
   | AnchorNavSchema
   | StepsSchema
@@ -425,6 +438,7 @@ export type SchemaObject =
   | ImageControlSchema
   | InputGroupControlSchema
   | ListControlSchema
+  | JSONSchemaEditorControlSchema
   | LocationControlSchema
   | UUIDControlSchema
   | MatrixControlSchema
@@ -594,6 +608,13 @@ export interface SchemaApiObject {
   cache?: number;
 
   /**
+   * 强制将数据附加在 query，默认只有 api 地址中没有用变量的时候 crud 查询接口才会
+   * 自动附加数据到 query 部分，如果想强制附加请设置这个属性。
+   * 对于那种临时加了个变量但是又不想全部参数写一遍的时候配置很有用。
+   */
+  forceAppendDataToQuery?: boolean;
+
+  /**
    * qs 配置项
    */
   qsOptions?: {
@@ -601,6 +622,11 @@ export interface SchemaApiObject {
     indices?: boolean;
     allowDots?: boolean;
   };
+
+  /**
+   * autoFillApi 是否显示自动填充错误提示
+   */
+  silent?: boolean;
 }
 
 export type SchemaApi = string | SchemaApiObject;
@@ -744,6 +770,11 @@ export interface BaseSchema {
    * 是否显示表达式
    */
   visibleOn?: SchemaExpression;
+
+  /**
+   * 组件唯一 id，主要用于日志采集
+   */
+  id?: string;
 }
 
 export interface Option {
@@ -882,4 +913,4 @@ export interface ToastSchemaBase extends BaseSchema {
    * 持续时间
    */
   timeout: number;
-};
+}

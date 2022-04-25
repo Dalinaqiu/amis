@@ -13,15 +13,15 @@ export default function handleAction(
   data?: any
 ) {
   // https://reactjs.org/docs/legacy-event-pooling.html
-  e.persist();
+  // e.persist(); // react 17之后去掉 event pooling 了，这个应该没用了
 
   const onAction = props.onAction;
   let onClick: any = action.onClick;
 
   if (typeof onClick === 'string') {
-    onClick = str2function(onClick, 'event', 'props');
+    onClick = str2function(onClick, 'event', 'props', 'data');
   }
-  const result: any = onClick && onClick(e, props);
+  const result: any = onClick && onClick(e, props, data || props.data);
 
   if (e.isDefaultPrevented() || result === false || !onAction) {
     return;

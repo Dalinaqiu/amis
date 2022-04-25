@@ -13,10 +13,12 @@ import {
   isArrayChildrenModified,
   getPropValue
 } from '../utils/helper';
+import {Action} from '../types';
 import {Icon} from '../components/icons';
 import {BaseSchema, SchemaCollection, SchemaName, SchemaTpl} from '../Schema';
 import Html from '../components/Html';
 import Image from '../renderers/Image';
+import {ScopedContext, IScopedContext} from '../Scoped';
 
 /**
  * Carousel 轮播图渲染器。
@@ -191,6 +193,16 @@ export class Carousel extends React.Component<CarouselProps, CarouselState> {
     this.clearAutoTimeout();
   }
 
+  doAction(action: Action, args: object, throwErrors: boolean): any {
+    const actionType = action?.actionType as string;
+
+    if (!!~['next', 'prev'].indexOf(actionType)) {
+      this.autoSlide(actionType);
+    } else if (actionType === 'goto-image') {
+      this.changeSlide((args as any).activeIndex);
+    }
+  }
+
   @autobind
   prepareAutoSlide() {
     if (this.state.options.length < 2) {
@@ -230,9 +242,9 @@ export class Carousel extends React.Component<CarouselProps, CarouselState> {
   }
 
   @autobind
-  transitFramesTowards(direction: string, nextAnimation: string) {
+  async transitFramesTowards(direction: string, nextAnimation: string) {
     let {current} = this.state;
-
+    let prevIndex = current;
     switch (direction) {
       case 'left':
         current = this.getFrameId('next');
@@ -240,6 +252,18 @@ export class Carousel extends React.Component<CarouselProps, CarouselState> {
       case 'right':
         current = this.getFrameId('prev');
         break;
+    }
+
+    const {dispatchEvent, data} = this.props;
+    const rendererEvent = await dispatchEvent(
+      'change',
+      createObject(data, {
+        activeIndex: current,
+        prevIndex
+      })
+    );
+    if (rendererEvent?.prevented) {
+      return;
     }
 
     this.setState({
@@ -278,6 +302,27 @@ export class Carousel extends React.Component<CarouselProps, CarouselState> {
     clearTimeout(this.durationTimeout as number);
   }
 
+  @autobind
+  async changeSlide(index: number) {
+    const {current} = this.state;
+    const {dispatchEvent, data} = this.props;
+
+    const rendererEvent = await dispatchEvent(
+      'change',
+      createObject(data, {
+        activeIndex: index,
+        prevIndex: current
+      })
+    );
+    if (rendererEvent?.prevented) {
+      return;
+    }
+
+    this.setState({
+      current: index
+    });
+  }
+
   renderDots() {
     const {classnames: cx} = this.props;
     const {current, options} = this.state;
@@ -290,6 +335,7 @@ export class Carousel extends React.Component<CarouselProps, CarouselState> {
         {Array.from({length: options.length}).map((_, i) => (
           <span
             key={i}
+            onClick={() => this.changeSlide(i)}
             className={cx('Carousel-dot', current === i ? 'is-active' : '')}
           />
         ))}
@@ -434,4 +480,19 @@ export class Carousel extends React.Component<CarouselProps, CarouselState> {
 @Renderer({
   type: 'carousel'
 })
-export class CarouselRenderer extends Carousel {}
+export class CarouselRenderer extends Carousel {
+  static contextType = ScopedContext;
+
+  constructor(props: CarouselProps, context: IScopedContext) {
+    super(props);
+
+    const scoped = context;
+    scoped.registerComponent(this);
+  }
+
+  componentWillUnmount() {
+    super.componentWillUnmount?.();
+    const scoped = this.context as IScopedContext;
+    scoped.unRegisterComponent(this);
+  }
+}

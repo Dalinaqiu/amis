@@ -17,6 +17,8 @@ export interface ValueProps extends ThemeProps, LocaleProps {
   op?: OperatorType;
   disabled?: boolean;
   formula?: FormulaPickerProps;
+  popOverContainer?: any;
+  renderEtrValue?: any;
 }
 
 export class Value extends React.Component<ValueProps> {
@@ -30,7 +32,9 @@ export class Value extends React.Component<ValueProps> {
       translate: __,
       data,
       disabled,
-      formula
+      formula,
+      popOverContainer,
+      renderEtrValue
     } = this.props;
     let input: JSX.Element | undefined = undefined;
     if (formula) {
@@ -76,13 +80,14 @@ export class Value extends React.Component<ValueProps> {
           onChange={onChange}
           timeFormat=""
           disabled={disabled}
+          popOverContainer={popOverContainer}
         />
       );
     } else if (field.type === 'time') {
       input = (
         <DatePicker
           viewMode="time"
-          placeholder={__(field.placeholder) || 'Time.placeholder'}
+          placeholder={__(field.placeholder) || __('Time.placeholder')}
           format={field.format || 'HH:mm'}
           inputFormat={field.inputFormat || 'HH:mm'}
           value={value ?? field.defaultValue}
@@ -90,6 +95,7 @@ export class Value extends React.Component<ValueProps> {
           dateFormat=""
           timeFormat={field.format || 'HH:mm'}
           disabled={disabled}
+          popOverContainer={popOverContainer}
         />
       );
     } else if (field.type === 'datetime') {
@@ -102,6 +108,7 @@ export class Value extends React.Component<ValueProps> {
           onChange={onChange}
           timeFormat={field.timeFormat || 'HH:mm'}
           disabled={disabled}
+          popOverContainer={popOverContainer}
         />
       );
     } else if (field.type === 'select') {
@@ -119,6 +126,7 @@ export class Value extends React.Component<ValueProps> {
           onChange={onChange}
           multiple={op === 'select_any_in' || op === 'select_not_any_in'}
           disabled={disabled}
+          popOverContainer={popOverContainer}
         />
       );
     } else if (field.type === 'boolean') {
@@ -129,6 +137,23 @@ export class Value extends React.Component<ValueProps> {
           disabled={disabled}
         />
       );
+    } else if (field.type === 'custom') {
+      input = renderEtrValue
+        ? renderEtrValue(field.value, {
+            data,
+            onChange,
+            value: value ?? field.defaultValue
+          })
+        : null;
+    } else {
+      const res = value ?? (field as any).defaultValue;
+      input = renderEtrValue
+        ? renderEtrValue(field, {
+            data,
+            onChange,
+            value: res ? res[(field as any).name] : res
+          })
+        : null;
     }
 
     return <div className={cx('CBValue')}>{input}</div>;

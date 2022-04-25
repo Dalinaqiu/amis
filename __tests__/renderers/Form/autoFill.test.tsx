@@ -1,5 +1,5 @@
 import React = require('react');
-import {render, cleanup, fireEvent} from '@testing-library/react';
+import {render, cleanup, fireEvent, waitFor} from '@testing-library/react';
 import '../../../src/themes/default';
 import {render as amisRender} from '../../../src/index';
 import {makeEnv, wait} from '../../helper';
@@ -64,7 +64,7 @@ test('Form:options:autoFill', async () => {
 
   // expect(container).toMatchSnapshot();
   fireEvent.click(getByText(/OptionA/));
-  await wait(300);
+  await wait(500);
 
   expect(container.querySelector('input[name=a]')?.getAttribute('value')).toBe(
     'a'
@@ -80,7 +80,7 @@ test('Form:options:autoFill', async () => {
   ).toBe('233');
 
   fireEvent.click(getByText(/OptionB/));
-  await wait(500);
+  await wait(1000);
 
   expect(container.querySelector('input[name=a]')?.getAttribute('value')).toBe(
     'b'
@@ -98,7 +98,7 @@ test('Form:options:autoFill', async () => {
 
 test('Form:options:autoFill:data', async () => {
   const onSubmit = jest.fn();
-  const {container, getByText} = render(
+  const {debug, container, getByText, findByText} = render(
     amisRender(
       {
         type: 'form',
@@ -134,16 +134,18 @@ test('Form:options:autoFill:data', async () => {
     )
   );
 
-  fireEvent.click(getByText(/OptionA/));
+  fireEvent.click(await findByText(/OptionA/));
+  await wait(500);
   fireEvent.click(getByText(/Submit/));
-  await wait(300);
+  await wait(200);
 
   expect(onSubmit).toBeCalled();
   expect(onSubmit.mock.calls[0][0]).toMatchSnapshot();
 
   fireEvent.click(getByText(/OptionB/));
+  await wait(500);
   fireEvent.click(getByText(/Submit/));
-  await wait(300);
+  await wait(200);
 
   expect(onSubmit).toBeCalledTimes(2);
   expect(onSubmit.mock.calls[1][0]).toMatchSnapshot();
@@ -151,7 +153,7 @@ test('Form:options:autoFill:data', async () => {
 
 test('Form:options:autoFill:multiple:data', async () => {
   const onSubmit = jest.fn();
-  const {container, getByText} = render(
+  const {container, getByText, findByText} = render(
     amisRender(
       {
         type: 'form',
@@ -188,16 +190,18 @@ test('Form:options:autoFill:multiple:data', async () => {
     )
   );
 
-  fireEvent.click(getByText(/OptionA/));
+  fireEvent.click(await findByText(/OptionA/));
+  await wait(500);
   fireEvent.click(getByText(/Submit/));
-  await wait(300);
+  await wait(200);
 
   expect(onSubmit).toBeCalled();
   expect(onSubmit.mock.calls[0][0]).toMatchSnapshot();
 
   fireEvent.click(getByText(/OptionB/));
+  await wait(500);
   fireEvent.click(getByText(/Submit/));
-  await wait(300);
+  await wait(200);
 
   expect(onSubmit).toBeCalledTimes(2);
   expect(onSubmit.mock.calls[1][0]).toMatchSnapshot();

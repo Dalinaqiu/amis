@@ -10,9 +10,11 @@ import Button from '../../components/Button';
 import Checkbox from '../../components/Checkbox';
 import TooltipWrapper from '../../components/TooltipWrapper';
 import type {TooltipObject} from '../../components/TooltipWrapper';
-import {noop, autobind} from '../../utils/helper';
+import {noop, autobind, anyChanged} from '../../utils/helper';
 import {filter} from '../../utils/tpl';
 import {Icon} from '../../components/icons';
+import {getIcon} from '../../components/icons';
+import {generateIcon} from '../../utils/icon';
 import {RootClose} from '../../utils/RootClose';
 import {IColumn} from '../../store/table';
 
@@ -112,6 +114,12 @@ export interface ColumnTogglerProps extends RendererProps {
    */
   columns: Array<IColumn>;
 
+  /**
+   * 弹窗底部按钮大小
+   */
+  footerBtnSize?: 'xs' | 'sm' | 'md' | 'lg';
+
+  activeToggaleColumns: Array<IColumn>;
   onColumnToggle: (columns: Array<IColumn>) => void;
   modalContainer?: () => HTMLElement;
 }
@@ -161,6 +169,12 @@ export default class ColumnToggler extends React.Component<
       this.setState({
         isOpened: true
       });
+    }
+  }
+
+  componentDidUpdate(prevProps: ColumnTogglerProps) {
+    if (anyChanged('activeToggaleColumns', prevProps, this.props)) {
+      this.setState({tempColumns: this.props.columns});
     }
   }
 
@@ -326,7 +340,8 @@ export default class ColumnToggler extends React.Component<
       modalContainer,
       draggable,
       overlay,
-      translate: __
+      translate: __,
+      footerBtnSize
     } = this.props;
 
     const {enableSorting, tempColumns} = this.state;
@@ -342,7 +357,9 @@ export default class ColumnToggler extends React.Component<
           overlay={typeof overlay === 'boolean' ? overlay : false}
         >
           <header className={cx('ColumnToggler-modal-header')}>
-            <span className={cx('ColumnToggler-modal-title')}>列设置</span>
+            <span className={cx('ColumnToggler-modal-title')}>
+              {__('Table.columnsVisibility')}
+            </span>
             <a
               data-tooltip={__('Dialog.close')}
               data-position="left"
@@ -372,13 +389,14 @@ export default class ColumnToggler extends React.Component<
                           <a className={cx('ColumnToggler-menuItem-dragBar')}>
                             <Icon icon="drag-bar" className={cx('icon')} />
                           </a>
-                          <span>
-                            {column.label ? render('tpl', column.label) : null}
+                          <span className={cx('ColumnToggler-menuItem-label')}>
+                            <span>{column.label || '-'}</span>
                           </span>
                         </>
                       ) : (
                         <Checkbox
                           size="sm"
+                          labelClassName={cx('ColumnToggler-menuItem-label')}
                           classPrefix={ns}
                           checked={column.toggled}
                           disabled={!column.toggable || enableSorting}
@@ -388,9 +406,7 @@ export default class ColumnToggler extends React.Component<
                             index
                           )}
                         >
-                          <span>
-                            {column.label ? render('tpl', column.label) : null}
-                          </span>
+                          <span>{column.label || '-'}</span>
                         </Checkbox>
                       )}
                     </li>
@@ -430,10 +446,18 @@ export default class ColumnToggler extends React.Component<
               </Button>
             </div>
             <div>
-              <Button className="mr-4" onClick={this.close}>
+              <Button
+                size={footerBtnSize}
+                className="mr-3"
+                onClick={this.close}
+              >
                 {__('cancel')}
               </Button>
-              <Button level="primary" onClick={this.onConfirm}>
+              <Button
+                size={footerBtnSize}
+                level="primary"
+                onClick={this.onConfirm}
+              >
                 {__('confirm')}
               </Button>
             </div>
@@ -492,11 +516,21 @@ export default class ColumnToggler extends React.Component<
       >
         {icon ? (
           typeof icon === 'string' ? (
-            <i className={cx(icon, 'm-r-xs')} />
+            getIcon(icon!) ? (
+              <Icon icon={icon} className={cx('icon', {'m-r-xs': !!label})} />
+            ) : (
+              generateIcon(cx, icon, label ? 'm-r-xs' : '')
+            )
+          ) : React.isValidElement(icon) ? (
+            React.cloneElement(icon, {
+              className: cx({'m-r-xs': !!label})
+            })
           ) : (
-            icon
+            <Icon icon="columns" className="icon m-r-none" />
           )
-        ) : null}
+        ) : (
+          <Icon icon="columns" className="icon m-r-none" />
+        )}
         {typeof label === 'string' ? filter(label, data) : label}
         {hideExpandIcon || draggable ? null : (
           <span className={cx('ColumnToggler-caret')}>

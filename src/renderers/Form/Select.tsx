@@ -228,7 +228,7 @@ export default class SelectControl extends React.Component<SelectProps, any> {
       'change',
       createObject(data, {
         value: newValue,
-        options,
+        options
       })
     );
     if (rendererEvent?.prevented) {
@@ -390,6 +390,8 @@ export default class SelectControl extends React.Component<SelectProps, any> {
             popOverContainer={
               mobileUI && env && env.getModalContainer
                 ? env.getModalContainer
+                : mobileUI
+                ? undefined
                 : rest.popOverContainer
             }
             borderMode={borderMode}
@@ -404,11 +406,13 @@ export default class SelectControl extends React.Component<SelectProps, any> {
             creatable={creatable}
             searchable={searchable || !!autoComplete}
             onChange={this.changeValue}
-            onBlur={(e: any) => this.dispatchEvent('blur', e)}
-            onFocus={(e: any) => this.dispatchEvent('focus', e)}
+            onBlur={(e: any) => this.dispatchEvent('blur', {value: e.value})}
+            onFocus={(e: any) => this.dispatchEvent('focus', {value: e.value})}
             onAdd={() => this.dispatchEvent('add')}
-            onEdit={(item: any) => this.dispatchEvent('edit', item)}
-            onDelete={(item: any) => this.dispatchEvent('delete', item)}
+            onEdit={(item: any) => this.dispatchEvent('edit', {value: item})}
+            onDelete={(item: any) =>
+              this.dispatchEvent('delete', {value: item})
+            }
             loading={loading}
             noResultsText={noResultsText}
             renderMenu={menuTpl ? this.renderMenu : undefined}
@@ -434,6 +438,12 @@ export interface TransferDropDownProps
 }
 
 class TransferDropdownRenderer extends BaseTransferRenderer<TransferDropDownProps> {
+  @autobind
+  renderItem(item: Option): any {
+    const {labelField} = this.props;
+    return `${item.scopeLabel || ''}${item[labelField || 'label']}`;
+  }
+
   render() {
     const {
       className,
@@ -484,6 +494,7 @@ class TransferDropdownRenderer extends BaseTransferRenderer<TransferDropDownProp
           options={options}
           onChange={this.handleChange}
           option2value={this.option2value}
+          itemRender={this.renderItem}
           sortable={sortable}
           searchResultMode={searchResultMode}
           onSearch={searchable ? this.handleSearch : undefined}

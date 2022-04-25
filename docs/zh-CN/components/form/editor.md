@@ -124,6 +124,34 @@ order: 19
 }
 ```
 
+## 编辑器自定义开发
+
+amis 的编辑器是基于 monaco 开发的，如果想进行深度定制，比如自动完成功能，可以通过自定义 `editorDidMount` 属性来获取到 monaco 实例，它有两种写法，一种是在 JS 中直接用函数，示例如下：
+
+```javascript
+{
+    "type": "form",
+    "api": "/api/mock2/form/saveForm",
+    "body": [
+        {
+            "type": "editor",
+            "name": "editor",
+            "label": "编辑器",
+            "language": "myLan",
+            "editorDidMount": (editor, monaco) => {
+                // editor 是 monaco 实例，monaco 是全局的名称空间
+                const dispose = monaco.languages.registerCompletionItemProvider('myLan', {
+                    /// 其他细节参考 monaco 手册
+                });
+
+                // 如果返回一个函数，这个函数会在编辑器组件卸载的时候调用，主要用于清理资源
+                return dispose;
+            }
+        }
+    ]
+}
+```
+
 ## 属性表
 
 除了支持 [普通表单项属性表](./formitem#%E5%B1%9E%E6%80%A7%E8%A1%A8) 中的配置以外，还支持下面一些配置
@@ -134,3 +162,16 @@ order: 19
 | size            | `string`  | `md`         | 编辑器高度，取值可以是 `md`、`lg`、`xl`、`xxl`                                                                                                                                                           |
 | allowFullscreen | `boolean` | `false`      | 是否显示全屏模式开关                                                                                                                                                                                     |
 | options         | `object`  |              | monaco 编辑器的其它配置，比如是否显示行号等，请参考[这里](https://microsoft.github.io/monaco-editor/api/enums/monaco.editor.EditorOption.html)，不过无法设置 readOnly，只读模式需要使用 `disabled: true` |
+
+## 事件表
+
+| 事件名称 | 事件参数        | 说明     |
+| -------- | --------------- | -------- |
+| focus    | `value: string` | 获取焦点 |
+| blur     | `value: string` | 失去焦点 |
+
+## 动作表
+
+| 动作名称 | 动作配置 | 说明     |
+| -------- | -------- | -------- |
+| focus    | -        | 获取焦点 |

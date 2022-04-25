@@ -16,6 +16,7 @@ import {Icon} from './icons';
 import debounce from 'lodash/debounce';
 import {findDOMNode} from 'react-dom';
 import TooltipWrapper, {TooltipObject, Trigger} from './TooltipWrapper';
+import {resizeSensor} from '../utils/resize-sensor';
 
 import Sortable from 'sortablejs';
 
@@ -26,7 +27,17 @@ const transitionStyles: {
   [ENTERED]: 'in'
 };
 
-export type TabsMode = '' | 'line' | 'card' | 'radio' | 'vertical' | 'chrome' | 'simple' | 'strong';
+export type TabsMode =
+  | ''
+  | 'line'
+  | 'card'
+  | 'radio'
+  | 'vertical'
+  | 'chrome'
+  | 'simple'
+  | 'strong'
+  | 'tiled'
+  | 'sidebar';
 
 export interface TabProps extends ThemeProps {
   title?: string | React.ReactNode; // 标题
@@ -114,6 +125,8 @@ export interface TabsProps extends ThemeProps {
   scrollable?: boolean; // 属性废弃，为了兼容暂且保留
   editable?: boolean;
   onEdit?: (index: number, text: string) => void;
+  sidePosition?: 'left' | 'right';
+  addBtnText?: string;
 }
 
 export interface IDragInfo {
@@ -121,22 +134,32 @@ export interface IDragInfo {
 }
 
 export class Tabs extends React.Component<TabsProps, any> {
-  static defaultProps: Pick<TabsProps,
-    'mode' | 'contentClassName' | 'showTip' | 'showTipClassName'
+  static defaultProps: Pick<
+    TabsProps,
+    | 'mode'
+    | 'contentClassName'
+    | 'showTip'
+    | 'showTipClassName'
+    | 'sidePosition'
+    | 'addBtnText'
   > = {
     mode: '',
     contentClassName: '',
     showTip: false,
-    showTipClassName: ''
+    showTipClassName: '',
+    sidePosition: 'left',
+    addBtnText: '新增' // 由于组件用的地方比较多，这里暂时不好改翻译
   };
 
   static Tab = Tab;
-  navMain = React.createRef<HTMLDivElement>();
+  navMain = React.createRef<HTMLUListElement>(); // HTMLDivElement
   scroll: boolean = false;
   sortable?: Sortable;
   dragTip?: HTMLElement;
   id: string = guid();
   draging: boolean = false;
+  toDispose: Array<() => void> = [];
+  resizeDom = React.createRef<HTMLDivElement>();
 
   checkArrowStatus = debounce(
     () => {
@@ -200,6 +223,13 @@ export class Tabs extends React.Component<TabsProps, any> {
       });
       this.checkArrowStatus();
     }
+
+    this.resizeDom?.current &&
+      this.toDispose.push(
+        resizeSensor(this.resizeDom.current as HTMLElement, () =>
+          this.computedWidth()
+        )
+      );
   }
 
   componentDidUpdate() {
@@ -212,6 +242,8 @@ export class Tabs extends React.Component<TabsProps, any> {
 
   componentWillUnmount() {
     this.checkArrowStatus.cancel();
+    this.toDispose.forEach(fn => fn());
+    this.toDispose = [];
   }
 
   /**
@@ -220,10 +252,10 @@ export class Tabs extends React.Component<TabsProps, any> {
   computedWidth() {
     const {mode: dMode, tabsMode} = this.props;
     const mode = tabsMode || dMode;
-    if (mode === 'vertical') {
+    if (['vertical', 'sidebar'].includes(mode)) {
       return;
     }
-  
+
     const navMainRef = this.navMain.current;
     const clientWidth: number = navMainRef?.clientWidth || 0;
     const scrollWidth: number = navMainRef?.scrollWidth || 0;
@@ -246,7 +278,7 @@ export class Tabs extends React.Component<TabsProps, any> {
     const {mode: dMode, tabsMode} = this.props;
     const {isOverflow} = this.state;
     const mode = tabsMode || dMode;
-    if (mode === 'vertical' || !isOverflow) {
+    if (['vertical', 'sidebar'].includes(mode) || !isOverflow) {
       return;
     }
     const {activeKey, children} = this.props;
@@ -254,7 +286,7 @@ export class Tabs extends React.Component<TabsProps, any> {
     const currentIndex = (children as any[])?.findIndex(
       (item: any) => item.props.eventKey === currentKey
     );
-    const li = this.navMain.current?.children[0]?.children || [];
+    const li = this.navMain.current?.children || [];
     const currentLi = li[currentIndex] as HTMLElement;
     const liOffsetLeft = currentLi?.offsetLeft;
     const liClientWidth = currentLi?.clientWidth;
@@ -299,7 +331,7 @@ export class Tabs extends React.Component<TabsProps, any> {
   handleEditInputChange(e: React.ChangeEvent<HTMLInputElement>) {
     this.setState({
       editInputText: e.currentTarget.value
-    })
+    });
   }
 
   @autobind
@@ -307,17 +339,16 @@ export class Tabs extends React.Component<TabsProps, any> {
     let {editingIndex, editInputText, editOriginText} = this.state;
     const {onEdit} = this.props;
 
-
     this.setState({
       editingIndex: null,
       editInputText: null,
       editOriginText: null
     });
 
-    onEdit
-      && (editInputText = String(editInputText).trim())
-      && (editInputText !== editOriginText)
-      && onEdit(editingIndex, editInputText);
+    onEdit &&
+      (editInputText = String(editInputText).trim()) &&
+      editInputText !== editOriginText &&
+      onEdit(editingIndex, editInputText);
   }
 
   @autobind
@@ -360,11 +391,13 @@ export class Tabs extends React.Component<TabsProps, any> {
           // 再交换回来
           const parent = e.to as HTMLElement;
           if (e.oldIndex < parent.childNodes.length - 1) {
-            parent.insertBefore(e.item, parent.childNodes[
-              e.oldIndex > e.newIndex ? e.oldIndex + 1 :  e.oldIndex
-            ]);
-          }
-          else {
+            parent.insertBefore(
+              e.item,
+              parent.childNodes[
+                e.oldIndex > e.newIndex ? e.oldIndex + 1 : e.oldIndex
+              ]
+            );
+          } else {
             parent.appendChild(e.item);
           }
 
@@ -426,7 +459,7 @@ export class Tabs extends React.Component<TabsProps, any> {
     this.scroll = true;
   }
 
-  renderNav(child: any, index: number) {
+  renderNav(child: any, index: number, showClose: boolean) {
     if (!child) {
       return;
     }
@@ -453,7 +486,6 @@ export class Tabs extends React.Component<TabsProps, any> {
       closable: tabClosable
     } = child.props;
 
-
     const {editingIndex, editInputText} = this.state;
 
     const activeKey =
@@ -462,38 +494,40 @@ export class Tabs extends React.Component<TabsProps, any> {
     const iconElement = generateIcon(cx, icon, 'Icon');
 
     const link = (
-      <a>
-        {
-          editable && editingIndex === index ? (
-            <input
-              className={cx('Tabs-link-edit')}
-              type="text"
-              value={editInputText}
-              autoFocus
-              onFocus={(e: React.ChangeEvent<HTMLInputElement>) => e.currentTarget.select()}
-              onChange={this.handleEditInputChange}
-              onBlur={this.handleEdit}
-              onKeyPress={(e: React.KeyboardEvent) => e && e.key === 'Enter' && this.handleEdit()}
-            />
-          ) : (
-            <>
-              {icon ? (
-                iconPosition === 'right' ? (
-                  <>
-                    {title} {iconElement}
-                  </>
-                ) : (
-                  <>
-                    {iconElement} {title}
-                  </>
-                )
+      <a title={typeof title === 'string' ? title : undefined}>
+        {editable && editingIndex === index ? (
+          <input
+            className={cx('Tabs-link-edit')}
+            type="text"
+            value={editInputText}
+            autoFocus
+            onFocus={(e: React.ChangeEvent<HTMLInputElement>) =>
+              e.currentTarget.select()
+            }
+            onChange={this.handleEditInputChange}
+            onBlur={this.handleEdit}
+            onKeyPress={(e: React.KeyboardEvent) =>
+              e && e.key === 'Enter' && this.handleEdit()
+            }
+          />
+        ) : (
+          <>
+            {icon ? (
+              iconPosition === 'right' ? (
+                <>
+                  {title} {iconElement}
+                </>
               ) : (
-                title
-              )}
-              {React.isValidElement(toolbar) ? toolbar : null}
-            </>
-          )
-        }
+                <>
+                  {iconElement} {title}
+                </>
+              )
+            ) : (
+              title
+            )}
+            {React.isValidElement(toolbar) ? toolbar : null}
+          </>
+        )}
       </a>
     );
 
@@ -511,29 +545,31 @@ export class Tabs extends React.Component<TabsProps, any> {
           editable && this.handleStartEdit(index, title);
         }}
       >
-        {
-          showTip ? (
-            <TooltipWrapper
-              placement='top'
-              tooltip={title}
-              trigger='hover'
-              tooltipClassName={showTipClassName}
-            >
-              {link}
-            </TooltipWrapper>
-          ) : link
-        }
+        {showTip ? (
+          <TooltipWrapper
+            placement="top"
+            tooltip={title}
+            trigger="hover"
+            tooltipClassName={showTipClassName}
+          >
+            {link}
+          </TooltipWrapper>
+        ) : (
+          link
+        )}
 
-        {
-          (tabClosable ?? closable) && (
-            <span className={cx('Tabs-link-close')} onClick={(e: React.MouseEvent) => {
+        {showClose && (tabClosable ?? closable) && (
+          <span
+            className={cx('Tabs-link-close')}
+            onClick={(e: React.MouseEvent) => {
               e.stopPropagation();
-              this.props.onClose && this.props.onClose(index, eventKey ?? index);
-            }}>
-              <Icon icon="close" className={cx('Tabs-link-close-icon')} />
-            </span>
-          )
-        }
+              this.props.onClose &&
+                this.props.onClose(index, eventKey ?? index);
+            }}
+          >
+            <Icon icon="close" className={cx('Tabs-link-close-icon')} />
+          </span>
+        )}
         {mode === 'chrome' ? (
           <div className="chrome-tab-background">
             <svg viewBox="0 0 124 124" className="chrome-tab-background--right">
@@ -569,7 +605,7 @@ export class Tabs extends React.Component<TabsProps, any> {
   renderArrow(type: 'left' | 'right') {
     const {mode: dMode, tabsMode} = this.props;
     const mode = tabsMode || dMode;
-    if (mode === 'vertical') {
+    if (['vertical', 'sidebar'].includes(mode)) {
       return;
     }
     const {classnames: cx} = this.props;
@@ -607,7 +643,9 @@ export class Tabs extends React.Component<TabsProps, any> {
       toolbar,
       linksClassName,
       addable,
-      draggable
+      draggable,
+      sidePosition,
+      addBtnText
     } = this.props;
 
     const {isOverflow} = this.state;
@@ -617,19 +655,40 @@ export class Tabs extends React.Component<TabsProps, any> {
 
     const mode = tabsMode || dMode;
 
+    const toolButtons = (
+      <>
+        {addable && (
+          <div
+            className={cx('Tabs-addable')}
+            onClick={() => this.handleAddBtn()}
+          >
+            <Icon icon="plus" className={cx('Tabs-addable-icon')} />
+            {addBtnText}
+          </div>
+        )}
+        {toolbar}
+      </>
+    );
+
     return (
       <div
         className={cx(
           `Tabs`,
           {
-            [`Tabs--${mode}`]: mode
+            [`Tabs--${mode}`]: mode,
+            [`sidebar--${sidePosition}`]: mode === 'sidebar'
           },
           className
         )}
       >
-        {
-        !['vertical', 'chrome'].includes(mode) ? (
-          <div className={cx('Tabs-linksContainer-wrapper')}>
+        {!['vertical', 'sidebar', 'chrome'].includes(mode) ? (
+          <div
+            className={cx(
+              'Tabs-linksContainer-wrapper',
+              toolbar && 'Tabs-linksContainer-wrapper--toolbar'
+            )}
+            ref={this.resizeDom}
+          >
             <div
               className={cx(
                 'Tabs-linksContainer',
@@ -637,28 +696,27 @@ export class Tabs extends React.Component<TabsProps, any> {
               )}
             >
               {this.renderArrow('left')}
-              <div className={cx('Tabs-linksContainer-main')} ref={this.navMain}>
-                <ul className={cx('Tabs-links', linksClassName)} role="tablist">
-                  {children.map((tab, index) => this.renderNav(tab, index))}
+              <div className={cx('Tabs-linksContainer-main')}>
+                <ul
+                  className={cx('Tabs-links', linksClassName)}
+                  role="tablist"
+                  ref={this.navMain}
+                >
+                  {children.map((tab, index) =>
+                    this.renderNav(tab, index, true)
+                  )}
                   {additionBtns}
-                  {toolbar}
+                  {!isOverflow && toolButtons}
                 </ul>
               </div>
               {this.renderArrow('right')}
             </div>
-            {
-              addable && (
-                <div className={cx('Tabs-addable')} onClick={() => this.handleAddBtn()}>
-                  <Icon icon="plus" className={cx('Tabs-addable-icon')} />
-                  增加
-                </div>
-              )
-            }
+            {isOverflow && toolButtons}
           </div>
         ) : (
           <div className={cx('Tabs-linksWrapper')}>
             <ul className={cx('Tabs-links', linksClassName)} role="tablist">
-              {children.map((tab, index) => this.renderNav(tab, index))}
+              {children.map((tab, index) => this.renderNav(tab, index, false))}
               {additionBtns}
               {toolbar}
             </ul>
@@ -670,14 +728,9 @@ export class Tabs extends React.Component<TabsProps, any> {
             return this.renderTab(child, index);
           })}
         </div>
-        {
-          draggable && (
-            <div
-              className={cx('Tabs-drag-tip')}
-              ref={this.dragTipRef}
-            />
-          )
-        }
+        {draggable && (
+          <div className={cx('Tabs-drag-tip')} ref={this.dragTipRef} />
+        )}
       </div>
     );
   }

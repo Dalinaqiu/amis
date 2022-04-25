@@ -14,6 +14,7 @@ export interface PickerContainerProps extends ThemeProps, LocaleProps {
   headerClassName?: string;
   children: (props: {
     onClick: (e: React.MouseEvent) => void;
+    setState: (state: any) => void;
     isOpened: boolean;
   }) => JSX.Element;
   bodyRender: (props: {
@@ -29,6 +30,8 @@ export interface PickerContainerProps extends ThemeProps, LocaleProps {
   popOverContainer?: any;
   popOverClassName?: string;
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | 'full';
+  onFocus?: () => void;
+  onClose?: () => void;
 }
 
 export interface PickerContainerState {
@@ -57,9 +60,12 @@ export class PickerContainer extends React.Component<
 
   @autobind
   handleClick() {
-    this.setState({
-      isOpened: true
-    });
+    this.setState(
+      {
+        isOpened: true
+      },
+      () => this.props.onFocus?.()
+    );
   }
 
   @autobind
@@ -68,7 +74,14 @@ export class PickerContainer extends React.Component<
       {
         isOpened: false
       },
-      callback || (() => this.props.onCancel?.())
+      () => {
+        this.props.onClose?.();
+        if (callback) {
+          callback();
+          return;
+        }
+        this.props.onCancel?.();
+      }
     );
   }
 
@@ -109,7 +122,8 @@ export class PickerContainer extends React.Component<
       <>
         {children({
           isOpened: this.state.isOpened,
-          onClick: this.handleClick
+          onClick: this.handleClick,
+          setState: this.updateState
         })}
 
         <Modal

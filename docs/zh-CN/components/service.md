@@ -10,7 +10,7 @@ order: 63
 
 amis 中部分组件，作为展示组件，自身没有**使用接口初始化数据域的能力**，例如：[Table](./table)、[Cards](./cards)、[List](./list)等，他们需要使用某些配置项，例如`source`，通过[数据映射](../../docs/concepts/data-mapping)功能，在当前的 **数据链** 中获取数据，并进行数据展示。
 
-而`Service`组件就是专门为该类组件而生，它的功能是：：**配置初始化接口，进行数据域的初始化，然后在`Service`内容器中配置子组件，这些子组件通过数据链的方法，获取`Service`所拉取到的数据**
+而`Service`组件就是专门为该类组件而生，它的功能是：**配置初始化接口，进行数据域的初始化，然后在`Service`内容器中配置子组件，这些子组件通过数据链的方法，获取`Service`所拉取到的数据**
 
 ## 基本使用
 
@@ -394,12 +394,9 @@ Service 支持通过 WebSocket 获取数据，只需要设置 ws（由于无示�
     }
   },
   "body": {
-    {
-      "label": "名称",
-      "type": "input-text",
-      "value": "name",
-      "name": "amis"
-    }
+    "label": "名称",
+    "type": "static",
+    "name": "name"
   }
 }
 ```
@@ -430,33 +427,82 @@ WebSocket 客户端的默认实现是使用标准 WebSocket，如果后端使用
 
 > 1.4.0 及以上版本修改了 ws 类型，将之前的字符串改成了对象的方式，会有两个参数 url 和 body
 
+下面是目前 amis 中 WebSocket 支持的默认实现：
+
 ```javascript
 wsFetcher(ws, onMessage, onError) {
-  if (ws) {
-    const socket = new WebSocket(ws.url);
-    socket.onopen = event => {
-      if (ws.body) {
-        socket.send(JSON.stringify(ws.body));
-      }
-    };
-    socket.onmessage = event => {
-      if (event.data) {
-        onMessage(JSON.parse(event.data));
-      }
-    };
-    socket.onerror = onError;
-    return {
-      close: socket.close
-    };
-  } else {
-    return {
-      close: () => {}
-    };
+    if (ws) {
+      const socket = new WebSocket(ws.url);
+      socket.onopen = event => {
+        if (ws.body) {
+          socket.send(JSON.stringify(ws.body));
+        }
+      };
+      socket.onmessage = event => {
+        if (event.data) {
+          let data;
+          try {
+            data = JSON.parse(event.data);
+          } catch (error) {}
+          if (typeof data !== 'object') {
+            let key = ws.responseKey || 'data';
+            data = {
+              [key]: event.data
+            };
+          }
+          onMessage(data);
+        }
+      };
+      socket.onerror = onError;
+      return {
+        close: socket.close
+      };
+    } else {
+      return {
+        close: () => {}
+      };
+    }
+  }
+```
+
+通过 onMessage 来通知 amis 数据修改了，并返回 close 函数来关闭连接。
+
+> 1.8.0 及以上版本
+
+如果 WebSocket 返回的结果不是 JSON 而只是某个字符串，需要配置 `responseKey` 属性来将这个结果放在这个 key 上，比如下面的例子
+
+```json
+{
+  "type": "service",
+  "ws": {
+    "url": "ws://localhost:8777?name=${name}",
+    "data": {
+      "name": "${name}"
+    },
+    "responseKey": "name"
+  },
+  "body": {
+    "label": "名称",
+    "type": "static",
+    "name": "name"
   }
 }
 ```
 
-通过 onMessage 来通知 amis 数据修改了，并返回 close 函数来关闭连接。
+对应的后端就只需要返回字符串
+
+```javascript
+const WebSocket = require('ws');
+
+const ws = new WebSocket.Server({port: 8777});
+
+ws.on('connection', function connection(ws) {
+  setInterval(() => {
+    const random = Math.floor(Math.random() * Math.floor(100));
+    ws.send(random);
+  }, 500);
+});
+```
 
 ## 调用外部函数获取数据
 
@@ -495,7 +541,7 @@ wsFetcher(ws, onMessage, onError) {
 ```javascript
 {
     "type": "service",
-    "dataProvider": async (data, setData) => {
+    "dataProvider": (data, setData) => {
       const timer = setInterval(() => {
         setData({date: new Date().toString()})
       }, 1000);
@@ -508,7 +554,16 @@ wsFetcher(ws, onMessage, onError) {
 }
 ```
 
-函数里可以使用 `await` 调用异步方法
+> 1.8.0 及以上版本
+
+新增了一个 `env` 属性，可以调用系统环境中的方法，比如 env.fetcher、tracker 等，比如下面的例子会调用 `env.notify` 来弹出提示
+
+```javascript
+{
+    "type": "service",
+    "dataProvider": "env.notify('info', 'msg')"
+}
+```
 
 ## 属性表
 
@@ -529,3 +584,18 @@ wsFetcher(ws, onMessage, onError) {
 | interval              | `number`                                  |                | 轮询时间间隔(最低 3000)                                                       |
 | silentPolling         | `boolean`                                 | `false`        | 配置轮询时是否显示加载动画                                                    |
 | stopAutoRefreshWhen   | [表达式](../../docs/concepts/expression)  |                | 配置停止轮询的条件                                                            |
+
+## 事件表
+
+| 事件名称          | 事件参数             | 说明                 |
+| ----------------- | -------------------- | -------------------- |
+| fetchInited       | api 初始化数据       | api 初始化完成       |
+| fetchSchemaInited | schemaApi 初始化数据 | schemaApi 初始化完成 |
+
+## 动作表
+
+| 动作名称 | 动作配置 | 说明                                            |
+| -------- | -------- | ----------------------------------------------- |
+| reload   | -        | 重新加载，调用 api，刷新数据域数据              |
+| rebuild  | -        | 重新构建，调用 schemaApi，重新构建容器内 Schema |
+| setValue | -        | 更新数据域数据                                  |

@@ -14,7 +14,13 @@ import {
   str2AsyncFunction
 } from '../utils/api';
 import {Spinner} from '../components';
-import {autobind, isEmpty, isVisible, qsstringify} from '../utils/helper';
+import {
+  autobind,
+  isEmpty,
+  isObjectShallowModified,
+  isVisible,
+  qsstringify
+} from '../utils/helper';
 import {
   BaseSchema,
   SchemaApi,
@@ -24,6 +30,9 @@ import {
   SchemaName
 } from '../Schema';
 import {IIRendererStore} from '../store';
+
+import type {ScopedComponentType} from '../Scoped';
+import type {ListenerAction} from '../actions/Action';
 
 /**
  * Service 服务类控件。
@@ -185,7 +194,7 @@ export default class Service extends React.Component<ServiceProps> {
       this.socket = this.fetchWSData(props.ws, store.data);
     }
 
-    if (props.defaultData !== prevProps.defaultData) {
+    if (isObjectShallowModified(prevProps.defaultData, props.defaultData)) {
       store.reInitData(props.defaultData);
     }
 
@@ -200,6 +209,32 @@ export default class Service extends React.Component<ServiceProps> {
     clearTimeout(this.timer);
     if (this.socket && this.socket.close) {
       this.socket.close();
+    }
+  }
+
+  doAction(action: ListenerAction, args: any) {
+    if (action?.actionType === 'rebuild') {
+      const {
+        schemaApi,
+        store,
+        dataProvider,
+        messages: {fetchSuccess, fetchFailed}
+      } = this.props;
+
+      store.updateData(args);
+      clearTimeout(this.timer);
+      if (isEffectiveApi(schemaApi, store.data)) {
+        store
+          .fetchSchema(schemaApi, store.data, {
+            successMessage: fetchSuccess,
+            errorMessage: fetchFailed
+          })
+          .then(this.afterSchemaFetch);
+      }
+
+      if (dataProvider) {
+        this.runDataProvider();
+      }
     }
   }
 
@@ -251,12 +286,18 @@ export default class Service extends React.Component<ServiceProps> {
     let dataProviderFunc = dataProvider;
 
     if (typeof dataProvider === 'string' && dataProvider) {
-      dataProviderFunc = str2AsyncFunction(dataProvider, 'data', 'setData')!;
+      dataProviderFunc = str2AsyncFunction(
+        dataProvider,
+        'data',
+        'setData',
+        'env'
+      )!;
     }
     if (typeof dataProviderFunc === 'function') {
       const unsubscribe = await dataProviderFunc(
         store.data,
-        this.dataProviderSetData
+        this.dataProviderSetData,
+        this.props.env
       );
       if (typeof unsubscribe === 'function') {
         this.dataProviderUnsubscribe = unsubscribe;
@@ -319,7 +360,10 @@ export default class Service extends React.Component<ServiceProps> {
     // 初始化接口返回的是整个 response，
     // 保存 ajax 请求的时候返回时数据部分。
     const data = result?.hasOwnProperty('ok') ? result.data : result;
-    const {onBulkChange} = this.props;
+    const {onBulkChange, dispatchEvent} = this.props;
+
+    dispatchEvent?.('fetchInited', data);
+
     if (!isEmpty(data) && onBulkChange) {
       onBulkChange(data);
     }
@@ -328,7 +372,10 @@ export default class Service extends React.Component<ServiceProps> {
   }
 
   afterSchemaFetch(schema: any) {
-    const {onBulkChange, formStore} = this.props;
+    const {onBulkChange, formStore, dispatchEvent} = this.props;
+
+    dispatchEvent?.('fetchSchemaInited', schema);
+
     if (formStore && schema?.data && onBulkChange) {
       onBulkChange && onBulkChange(schema.data);
     }
@@ -363,6 +410,7 @@ export default class Service extends React.Component<ServiceProps> {
       initFetch,
       initFetchOn,
       store,
+      dataProvider,
       messages: {fetchSuccess, fetchFailed}
     } = this.props;
 
@@ -385,6 +433,10 @@ export default class Service extends React.Component<ServiceProps> {
           errorMessage: fetchFailed
         })
         .then(this.afterDataFetch);
+    }
+
+    if (dataProvider) {
+      this.runDataProvider();
     }
   }
 
@@ -411,22 +463,35 @@ export default class Service extends React.Component<ServiceProps> {
     // 会被覆写
   }
 
+  @autobind
+  handleDialogConfirm(
+    values: object[],
+    action: Action,
+    ctx: any,
+    targets: Array<any>
+  ) {
+    const {store} = this.props;
+    store.closeDialog(true);
+  }
+
+  @autobind
+  handleDialogClose(confirmed = false) {
+    const {store} = this.props;
+    store.closeDialog(confirmed);
+  }
+
   openFeedback(dialog: any, ctx: any) {
     return new Promise(resolve => {
       const {store} = this.props;
-      const parentStore = store.parentStore;
 
-      // 暂时自己不支持弹出 dialog
-      if (parentStore && parentStore.openDialog) {
-        store.setCurrentAction({
-          type: 'button',
-          actionType: 'dialog',
-          dialog: dialog
-        });
-        store.openDialog(ctx, undefined, confirmed => {
-          resolve(confirmed);
-        });
-      }
+      store.setCurrentAction({
+        type: 'button',
+        actionType: 'dialog',
+        dialog: dialog
+      });
+      store.openDialog(ctx, undefined, confirmed => {
+        resolve(confirmed);
+      });
     });
   }
 
@@ -486,18 +551,12 @@ export default class Service extends React.Component<ServiceProps> {
   renderBody() {
     const {render, store, body: schema, classnames: cx} = this.props;
 
-    return (
-      <div className={cx('Service-body')}>
-        {
-          render('body', store.schema || schema, {
-            key: store.schemaKey || 'body',
-            onQuery: this.handleQuery,
-            onAction: this.handleAction,
-            onChange: this.handleChange
-          }) as JSX.Element
-        }
-      </div>
-    );
+    return render('body', store.schema || schema, {
+      key: store.schemaKey || 'body',
+      onQuery: this.handleQuery,
+      onAction: this.handleAction,
+      onChange: this.handleChange
+    }) as JSX.Element;
   }
 
   render() {
@@ -527,6 +586,23 @@ export default class Service extends React.Component<ServiceProps> {
         {this.renderBody()}
 
         <Spinner size="lg" overlay key="info" show={store.loading} />
+
+        {render(
+          // 单独给 feedback 服务的，handleAction 里面先不要处理弹窗
+          'modal',
+          {
+            ...((store.action as Action) &&
+              ((store.action as Action).dialog as object)),
+            type: 'dialog'
+          },
+          {
+            key: 'dialog',
+            data: store.dialogData,
+            onConfirm: this.handleDialogConfirm,
+            onClose: this.handleDialogClose,
+            show: store.dialogOpen
+          }
+        )}
       </div>
     );
   }
@@ -545,7 +621,7 @@ export class ServiceRenderer extends Service {
     super(props);
 
     const scoped = context;
-    scoped.registerComponent(this);
+    scoped.registerComponent(this as ScopedComponentType);
   }
 
   reload(subpath?: string, query?: any, ctx?: any, silent?: boolean) {
@@ -572,11 +648,15 @@ export class ServiceRenderer extends Service {
   componentWillUnmount() {
     super.componentWillUnmount();
     const scoped = this.context as IScopedContext;
-    scoped.unRegisterComponent(this);
+    scoped.unRegisterComponent(this as ScopedComponentType);
   }
 
   reloadTarget(target: string, data?: any) {
     const scoped = this.context as IScopedContext;
     scoped.reload(target, data);
+  }
+
+  setData(values: object) {
+    return this.props.store.updateData(values);
   }
 }

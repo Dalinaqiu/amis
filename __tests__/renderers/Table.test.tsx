@@ -138,7 +138,7 @@ test('Renderer:table children', () => {
                 platform: 'Win 95+',
                 version: '4',
                 grade: 'X',
-                id: 1,
+                __id: 1,
                 children: [
                   {
                     engine: 'Trident',
@@ -146,7 +146,7 @@ test('Renderer:table children', () => {
                     platform: 'Win 95+',
                     version: '4',
                     grade: 'X',
-                    id: 1001
+                    __id: 1001
                   },
                   {
                     engine: 'Trident',
@@ -154,7 +154,7 @@ test('Renderer:table children', () => {
                     platform: 'Win 95+',
                     version: '5',
                     grade: 'C',
-                    id: 1002
+                    __id: 1002
                   }
                 ]
               },
@@ -164,7 +164,7 @@ test('Renderer:table children', () => {
                 platform: 'Win 95+',
                 version: '5',
                 grade: 'C',
-                id: 2,
+                __id: 2,
                 children: [
                   {
                     engine: 'Trident',
@@ -172,7 +172,7 @@ test('Renderer:table children', () => {
                     platform: 'Win 95+',
                     version: '4',
                     grade: 'X',
-                    id: 2001
+                    __id: 2001
                   },
                   {
                     engine: 'Trident',
@@ -180,7 +180,7 @@ test('Renderer:table children', () => {
                     platform: 'Win 95+',
                     version: '5',
                     grade: 'C',
-                    id: 2002
+                    __id: 2002
                   }
                 ]
               },
@@ -190,7 +190,7 @@ test('Renderer:table children', () => {
                 platform: 'Win 95+',
                 version: '5.5',
                 grade: 'A',
-                id: 3,
+                __id: 3,
                 children: [
                   {
                     engine: 'Trident',
@@ -198,7 +198,7 @@ test('Renderer:table children', () => {
                     platform: 'Win 95+',
                     version: '4',
                     grade: 'X',
-                    id: 3001
+                    __id: 3001
                   },
                   {
                     engine: 'Trident',
@@ -206,7 +206,7 @@ test('Renderer:table children', () => {
                     platform: 'Win 95+',
                     version: '5',
                     grade: 'C',
-                    id: 3002
+                    __id: 3002
                   }
                 ]
               },
@@ -216,7 +216,7 @@ test('Renderer:table children', () => {
                 platform: 'Win 98+',
                 version: '6',
                 grade: 'A',
-                id: 4,
+                __id: 4,
                 children: [
                   {
                     engine: 'Trident',
@@ -224,7 +224,7 @@ test('Renderer:table children', () => {
                     platform: 'Win 95+',
                     version: '4',
                     grade: 'X',
-                    id: 4001
+                    __id: 4001
                   },
                   {
                     engine: 'Trident',
@@ -232,7 +232,7 @@ test('Renderer:table children', () => {
                     platform: 'Win 95+',
                     version: '5',
                     grade: 'C',
-                    id: 4002
+                    __id: 4002
                   }
                 ]
               },
@@ -242,7 +242,7 @@ test('Renderer:table children', () => {
                 platform: 'Win XP SP2+',
                 version: '7',
                 grade: 'A',
-                id: 5,
+                __id: 5,
                 children: [
                   {
                     engine: 'Trident',
@@ -250,7 +250,7 @@ test('Renderer:table children', () => {
                     platform: 'Win 95+',
                     version: '4',
                     grade: 'X',
-                    id: 5001
+                    __id: 5001
                   },
                   {
                     engine: 'Trident',
@@ -258,7 +258,7 @@ test('Renderer:table children', () => {
                     platform: 'Win 95+',
                     version: '5',
                     grade: 'C',
-                    id: 5002
+                    __id: 5002
                   }
                 ]
               }
@@ -288,7 +288,7 @@ test('Renderer:table children', () => {
                   label: 'Browser'
                 },
                 {
-                  name: 'id',
+                  name: '__id',
                   label: 'ID'
                 },
                 {
@@ -308,6 +308,7 @@ test('Renderer:table children', () => {
   expect(container).toMatchSnapshot();
 });
 
+// 合并单元格
 test('Renderer:table combineNum', () => {
   const {container} = render(
     amisRender(
@@ -359,7 +360,210 @@ test('Renderer:table combineNum', () => {
   expect(container).toMatchSnapshot();
 });
 
-test('Renderer:table group', () => {
+// 超级表头
+test('Renderer:table groupName-default', () => {
+  const {container} = render(
+    amisRender(
+      {
+        type: 'page',
+        body: {
+          type: 'service',
+          data: {
+            rows
+          },
+          body: [
+            {
+              type: 'table',
+              source: '$rows',
+              className: 'm-b-none',
+              columns: [
+                {
+                  name: 'engine',
+                  label: 'Engine',
+                  groupName: '分组1'
+                },
+                {
+                  name: 'grade',
+                  label: 'Grade',
+                  groupName: '分组1'
+                },
+                {
+                  name: 'version',
+                  label: 'Version',
+                  groupName: '分组2'
+                },
+                {
+                  name: 'browser',
+                  label: 'Browser',
+                  groupName: '分组2'
+                },
+                {
+                  name: 'id',
+                  label: 'ID',
+                  toggled: false,
+                  groupName: '分组2'
+                },
+                {
+                  name: 'platform',
+                  label: 'Platform',
+                  groupName: '分组2'
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {},
+      makeEnv({})
+    )
+  );
+
+  expect(container).toMatchSnapshot();
+});
+
+// 超级表头，但是 tpl
+test('Renderer:table groupName-withTpl', () => {
+  const {container} = render(
+    amisRender(
+      {
+        type: 'page',
+        data: {
+          groups: [
+            {
+              group: '分组1'
+            },
+            {
+              group: '分组1'
+            }
+          ]
+        },
+        body: {
+          type: 'service',
+          data: {
+            rows
+          },
+          body: [
+            {
+              type: 'table',
+              source: '$rows',
+              className: 'm-b-none',
+              columns: [
+                {
+                  name: 'engine',
+                  label: 'Engine',
+                  groupName: '${groups[0].group}'
+                },
+                {
+                  name: 'grade',
+                  label: 'Grade',
+                  groupName: '${groups[1].group}'
+                },
+                {
+                  name: 'version',
+                  label: 'Version',
+                  groupName: '分组2'
+                },
+                {
+                  name: 'browser',
+                  label: 'Browser',
+                  groupName: '分组2'
+                },
+                {
+                  name: 'id',
+                  label: 'ID',
+                  toggled: false,
+                  groupName: '分组2'
+                },
+                {
+                  name: 'platform',
+                  label: 'Platform',
+                  groupName: '分组2'
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {},
+      makeEnv({})
+    )
+  );
+
+  expect(container).toMatchSnapshot();
+});
+
+// 超级表头，但是 中间列未配置表头
+test('Renderer:table groupName-middleNoGroupName', () => {
+  const {container} = render(
+    amisRender(
+      {
+        type: 'page',
+        data: {
+          groups: [
+            {
+              group: '分组1'
+            },
+            {
+              group: '分组1'
+            }
+          ]
+        },
+        body: {
+          type: 'service',
+          data: {
+            rows
+          },
+          body: [
+            {
+              type: 'table',
+              source: '$rows',
+              className: 'm-b-none',
+              columns: [
+                {
+                  name: 'engine',
+                  label: 'Engine',
+                  groupName: '分组1'
+                },
+                {
+                  name: 'grade',
+                  label: 'Grade'
+                  // groupName: '分组1' // 这里没配置groupName
+                },
+                {
+                  name: 'version',
+                  label: 'Version'
+                  // groupName: '分组2' // 这里没配置groupName
+                },
+                {
+                  name: 'browser',
+                  label: 'Browser',
+                  groupName: '分组2'
+                },
+                {
+                  name: 'id',
+                  label: 'ID',
+                  toggled: false,
+                  groupName: '分组2'
+                },
+                {
+                  name: 'platform',
+                  label: 'Platform',
+                  groupName: '分组2'
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {},
+      makeEnv({})
+    )
+  );
+
+  expect(container).toMatchSnapshot();
+});
+
+test('Renderer:table column head style', () => {
   const {container} = render(
     amisRender(
       {
@@ -398,7 +602,7 @@ test('Renderer:table list', () => {
         data: {
           items: [
             {
-              id: '91264',
+              __id: '91264',
               text: '衡 阎',
               progress: 22,
               type: 4,
@@ -439,12 +643,12 @@ test('Renderer:table list', () => {
               image:
                 'https://ss0.bdstatic.com/70cFvHSh_Q1YnxGkpoWK1HF6hhy/it/u=3893101144,2877209892&fm=23&gp=0.jpg',
               json: {
-                id: 1,
+                __id: 1,
                 text: 'text'
               }
             },
             {
-              id: '34202',
+              __id: '34202',
               text: '吉 卢汉市',
               progress: 85,
               type: 1,
@@ -509,12 +713,12 @@ test('Renderer:table list', () => {
               image:
                 'https://ss0.bdstatic.com/70cFvHSh_Q1YnxGkpoWK1HF6hhy/it/u=3893101144,2877209892&fm=23&gp=0.jpg',
               json: {
-                id: 1,
+                __id: 1,
                 text: 'text'
               }
             },
             {
-              id: '37701',
+              __id: '37701',
               text: '立辉安市',
               progress: 72,
               type: 2,
@@ -571,7 +775,7 @@ test('Renderer:table list', () => {
               image:
                 'https://ss0.bdstatic.com/70cFvHSh_Q1YnxGkpoWK1HF6hhy/it/u=3893101144,2877209892&fm=23&gp=0.jpg',
               json: {
-                id: 1,
+                __id: 1,
                 text: 'text'
               }
             }
@@ -581,7 +785,7 @@ test('Renderer:table list', () => {
         syncLocation: false,
         columns: [
           {
-            name: 'id',
+            name: '__id',
             label: 'ID',
             type: 'text'
           },

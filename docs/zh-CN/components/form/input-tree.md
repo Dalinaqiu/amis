@@ -159,7 +159,7 @@ order: 59
 
 ## 选中父节点是否自动选中子节点
 
-默认选中父节点会自动选中子节点，可以设置`"cascade": true`，不自动选中子节点
+`autoCheckChildren`默认为true，选中父节点会自动选中子节点，可以设置`"autoCheckChildren": false`，不自动选中子节点
 
 ```schema: scope="body"
 {
@@ -209,6 +209,92 @@ order: 59
       "name": "tree2",
       "label": "不自动选中子节点",
       "multiple": true,
+      "autoCheckChildren": false,
+      "options": [
+        {
+          "label": "A",
+          "value": "a"
+        },
+        {
+          "label": "B",
+          "value": "b",
+          "children": [
+            {
+              "label": "B-1",
+              "value": "b-1"
+            },
+            {
+              "label": "B-2",
+              "value": "b-2"
+            },
+            {
+              "label": "B-3",
+              "value": "b-3"
+            }
+          ]
+        },
+        {
+          "label": "C",
+          "value": "c"
+        }
+      ]
+    }
+  ]
+}
+```
+
+## 选中父节点自动选中子节点，数据是否包含父子节点的值
+`cascade`默认为false，子节点禁止反选，值不包含子节点值，配置`"cascade": true`，子节点可以反选，值包含父子节点值
+
+
+```schema: scope="body"
+{
+  "type": "form",
+  "debug": true,
+  "api": "/api/mock2/form/saveForm",
+  "body": [
+    {
+      "type": "input-tree",
+      "name": "tree1",
+      "label": "默认子节点禁止反选，值不包含子节点值",
+      "multiple": true,
+      "options": [
+        {
+          "label": "A",
+          "value": "a"
+        },
+        {
+          "label": "B",
+          "value": "b",
+          "children": [
+            {
+              "label": "B-1",
+              "value": "b-1"
+            },
+            {
+              "label": "B-2",
+              "value": "b-2"
+            },
+            {
+              "label": "B-3",
+              "value": "b-3"
+            }
+          ]
+        },
+        {
+          "label": "C",
+          "value": "c"
+        }
+      ]
+    },
+    {
+        "type": "divider"
+    },
+     {
+      "type": "input-tree",
+      "name": "tree2",
+      "label": "子节点可以反选，值包含父子节点值",
+      "multiple": true,
       "cascade": true,
       "options": [
         {
@@ -243,9 +329,7 @@ order: 59
 }
 ```
 
-## 选中父节点，值是否包含子节点
-
-默认选中父节点，是不会带上子节点的值，想要自动带上子节点的值，那么配置`"withChildren": true`
+`withChildren`默认为false，子节点禁止反选，值包含父子节点值，配置`withChildren": true`，子节点禁止反选，值包含父子节点值
 
 ```schema: scope="body"
 {
@@ -256,7 +340,7 @@ order: 59
     {
       "type": "input-tree",
       "name": "tree1",
-      "label": "默认不自动带上子节点的值",
+      "label": "默认不包含子节点的值",
       "multiple": true,
       "options": [
         {
@@ -340,7 +424,7 @@ order: 59
     {
       "type": "input-tree",
       "name": "tree1",
-      "label": "默认不自动带上子节点的值",
+      "label": "默认不包含子节点的值",
       "multiple": true,
       "options": [
         {
@@ -731,7 +815,7 @@ order: 59
 
 > since 1.2.4
 
-配置`enableNodePath: true`后, 可以将`value`格式转换成节点路径模式，`pathSeparator`设置路径分隔符，建议将该属性的值和拼接符`delimeter`区分开。节点路径模式下，`value`中所有节点的父节点都会自动加载数据并回显。不同配置属性的节点路径模式`value`如下:
+配置`enableNodePath: true`后, 可以将`value`格式转换成节点路径模式，`pathSeparator`设置路径分隔符，建议将该属性的值和拼接符`delimiter`区分开。节点路径模式下，`value`中所有节点的父节点都会自动加载数据并回显。不同配置属性的节点路径模式`value`如下:
 
 ```
     a
@@ -804,7 +888,7 @@ true        false        true       [{label: 'A/B/C', value: 'a/b/c'},{label: 'A
 | source                 | `string`或 [API](../../../../docs/types/api) |                  | [动态选项组](./options#%E5%8A%A8%E6%80%81%E9%80%89%E9%A1%B9%E7%BB%84-source)                                        |
 | autoComplete           | [API](../../../../docs/types/api)            |                  | [自动提示补全](./options#%E8%87%AA%E5%8A%A8%E8%A1%A5%E5%85%A8-autocomplete)                                         |
 | multiple               | `boolean`                                    | `false`          | 是否多选                                                                                                            |
-| delimeter              | `string`                                     | `false`          | [拼接符](./options#%E6%8B%BC%E6%8E%A5%E7%AC%A6-delimiter)                                                           |
+| delimiter              | `string`                                     | `false`          | [拼接符](./options#%E6%8B%BC%E6%8E%A5%E7%AC%A6-delimiter)                                                           |
 | labelField             | `string`                                     | `"label"`        | [选项标签字段](./options#%E9%80%89%E9%A1%B9%E6%A0%87%E7%AD%BE%E5%AD%97%E6%AE%B5-labelfield)                         |
 | valueField             | `string`                                     | `"value"`        | [选项值字段](./options#%E9%80%89%E9%A1%B9%E5%80%BC%E5%AD%97%E6%AE%B5-valuefield)                                    |
 | iconField              | `string`                                     | `"icon"`         | 图标值字段                                                                                                          |
@@ -823,11 +907,13 @@ true        false        true       [{label: 'A/B/C', value: 'a/b/c'},{label: 'A
 | rootLabel              | `boolean`                                    | `"顶级"`         | 当 `hideRoot` 不为 `false` 时有用，用来设置顶级节点的文字。                                                         |
 | showIcon               | `boolean`                                    | `true`           | 是否显示图标                                                                                                        |
 | showRadio              | `boolean`                                    | `false`          | 是否显示单选按钮，`multiple` 为 `false` 是有效。                                                                    |
+| showOutline            | `boolean`                                    | `false`          | 是否显示树层级展开线                                                                                                |
 | initiallyOpen          | `boolean`                                    | `true`           | 设置是否默认展开所有层级。                                                                                          |
 | unfoldedLevel          | `number`                                     | `0`              | 设置默认展开的级数，只有`initiallyOpen`不是`true`时生效。                                                           |
-| cascade                | `boolean`                                    | `false`          | 当选中父节点时不自动选择子节点。                                                                                    |
-| withChildren           | `boolean`                                    | `false`          | 选中父节点时，值里面将包含子节点的值，否则只会保留父节点的值。                                                      |
-| onlyChildren           | `boolean`                                    | `false`          | 多选时，选中父节点时，是否只将其子节点加入到值中。                                                                  |
+| autoCheckChildren      | `boolean`                                    | `true`           | 当选中父节点时级联选择子节点。                                                                                    |
+| cascade                | `boolean`                                    | `false`          | autoCheckChildren为true时生效；默认行为：子节点禁用，值只包含父节点值；设置为true时，子节点可反选，值包含父子节点值。          |
+| withChildren           | `boolean`                                    | `false`          | cascade为false时生效，选中父节点时，值里面将包含父子节点的值，否则只会保留父节点的值。                                                
+| onlyChildren           | `boolean`                                    | `false`          | autoCheckChildren为true时生效，不受cascade影响；onlyChildren为true，ui行为级联选中子节点，子节点可反选，值只包含子节点的值。                                                                  |
 | rootCreatable          | `boolean`                                    | `false`          | 是否可以创建顶级节点                                                                                                |
 | rootCreateTip          | `string`                                     | `"添加一级节点"` | 创建顶级节点的悬浮提示                                                                                              |
 | minLength              | `number`                                     |                  | 最少选中的节点数                                                                                                    |
@@ -835,3 +921,24 @@ true        false        true       [{label: 'A/B/C', value: 'a/b/c'},{label: 'A
 | treeContainerClassName | `string`                                     |                  | tree 最外层容器类名                                                                                                 |
 | enableNodePath         | `boolean`                                    | `false`          | 是否开启节点路径模式                                                                                                |
 | pathSeparator          | `string`                                     | `/`              | 节点路径的分隔符，`enableNodePath`为`true`时生效                                                                    |
+
+
+## 事件表
+
+| 事件名称        | 事件参数                        | 说明                 |
+|--------------- |------------------------        |----------------------|
+| change         | value: `string` 更新后的数据     | 选中值更改 |
+| add            | value: `string` 新增节点信息     | 新增选项 |
+| edit           | value: `string` 编辑节点信息     | 编辑选项 |
+| delete         | value: `string` 删除节点信息     | 删除选项 |
+| loadFinished   | value: `json` 懒加载返回的数据    | 懒加载完成触发 |
+
+
+## 动作表
+
+| 动作名称        | 动作配置                                            | 说明                 |
+|----------------|-------------------------------------------------- |---------------------|
+| expand         | openLevel: `number`                               | 配置展开层级 |
+| collapse       | -                                                 |  关闭树|
+| clear          | -                                                 | 清除数据 |
+| reset          | -                                                 | 重置数据 |

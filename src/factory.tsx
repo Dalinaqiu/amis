@@ -4,7 +4,6 @@ import {getEnv, destroy} from 'mobx-state-tree';
 import {wrapFetcher} from './utils/api';
 import {normalizeLink} from './utils/normalizeLink';
 import {
-  createObject,
   findIndex,
   isObject,
   JSONTraverse,
@@ -13,9 +12,7 @@ import {
   string2regExp
 } from './utils/helper';
 import {
-  Api,
   fetcherResult,
-  Payload,
   SchemaNode,
   Schema,
   Action,
@@ -23,8 +20,8 @@ import {
   PlainObject
 } from './types';
 import {observer} from 'mobx-react';
-import Scoped, {IScopedContext} from './Scoped';
-import {getTheme, ThemeInstance, ThemeProps} from './theme';
+import Scoped from './Scoped';
+import {getTheme, ThemeProps} from './theme';
 import find from 'lodash/find';
 import Alert from './components/Alert2';
 import {toast} from './components/Toast';
@@ -34,14 +31,8 @@ import ScopedRootRenderer, {RootRenderProps} from './Root';
 import {HocStoreFactory} from './WithStore';
 import {EnvContext, RendererEnv} from './env';
 import {envOverwrite} from './envOverwrite';
-import {
-  EventListeners,
-  createRendererEvent,
-  RendererEventListener,
-  OnEventProps,
-  RendererEvent
-} from './utils/renderer-event';
-import {runActions} from './actions/Action';
+import {OnEventProps} from './utils/renderer-event';
+import {enableDebug} from './utils/debug';
 
 export interface TestFunc {
   (
@@ -69,6 +60,7 @@ export interface RendererBasicConfig {
   weight?: number; // 权重，值越低越优先命中。
   isolateScope?: boolean;
   isFormItem?: boolean;
+  autoVar?: boolean; // 自动解析变量
   // [propName:string]:any;
 }
 
@@ -102,6 +94,7 @@ export interface RenderSchemaFilter {
 
 export interface wsObject {
   url: string;
+  responseKey?: string;
   body?: any;
 }
 
@@ -152,6 +145,10 @@ export interface RenderOptions {
    * 过滤 html 标签，可用来添加 xss 保护逻辑
    */
   filterHtml?: (input: string) => string;
+  /**
+   * 是否开启 amis 调试
+   */
+  enableAMISDebug?: boolean;
   [propName: string]: any;
 }
 
@@ -271,8 +268,11 @@ const defaultOptions: RenderOptions = {
   affixOffsetBottom: 0,
   richTextToken: '',
   useMobileUI: true, // 是否启用移动端原生 UI
+  enableAMISDebug:
+    (window as any).enableAMISDebug ??
+    location.search.indexOf('amisDebug=1') !== -1 ??
+    false,
   loadRenderer,
-  rendererEventListeners: [],
   fetcher() {
     return Promise.reject('fetcher is required');
   },
@@ -287,7 +287,18 @@ const defaultOptions: RenderOptions = {
       };
       socket.onmessage = event => {
         if (event.data) {
-          onMessage(JSON.parse(event.data));
+          let data;
+          try {
+            data = JSON.parse(event.data);
+          } catch (error) {}
+          if (typeof data !== 'object') {
+            let key = ws.responseKey || 'data';
+            data = {
+              [key]: event.data
+            };
+          }
+
+          onMessage(data);
         }
       };
       socket.onerror = onError;
@@ -362,87 +373,6 @@ const defaultOptions: RenderOptions = {
   },
   // 用于跟踪用户在界面中的各种操作
   tracker(eventTrack: EventTrack, props: PlainObject) {},
-  // 返回解绑函数
-  bindEvent(renderer: any) {
-    if (!renderer) {
-      return undefined;
-    }
-    const listeners: EventListeners = renderer.props.$schema.onEvent;
-    if (listeners) {
-      // 暂存
-      for (let key of Object.keys(listeners)) {
-        this.rendererEventListeners.push({
-          renderer,
-          type: key,
-          weight: listeners[key].weight || 0,
-          actions: listeners[key].actions
-        });
-      }
-
-      return () => {
-        this.rendererEventListeners = this.rendererEventListeners.filter(
-          (item: RendererEventListener) => item.renderer !== renderer
-        );
-      };
-    }
-
-    return undefined;
-  },
-  async dispatchEvent(
-    e: string | React.MouseEvent<any>,
-    renderer: React.Component<RendererProps>,
-    scoped: IScopedContext,
-    data: any,
-    broadcast?: RendererEvent<any>
-  ) {
-    const eventName = typeof e === 'string' ? e : e.type;
-    if (!broadcast) {
-      const eventConfig = renderer?.props?.onEvent?.[eventName];
-
-      if (!eventConfig) {
-        // 没命中也没关系
-        return Promise.resolve(undefined);
-      }
-    }
-
-    // 没有可处理的监听
-    if (!this.rendererEventListeners.length) {
-      return Promise.resolve();
-    }
-
-    // 如果是广播动作，就直接复用
-    const rendererEvent =
-      broadcast ||
-      createRendererEvent(eventName, {
-        env: this,
-        nativeEvent: e,
-        data,
-        scoped
-      });
-
-    // 过滤&排序
-    const listeners = this.rendererEventListeners
-      .filter(
-        (item: RendererEventListener) =>
-          item.type === eventName &&
-          (broadcast ? true : item.renderer === renderer)
-      )
-      .sort(
-        (prev: RendererEventListener, next: RendererEventListener) =>
-          next.weight - prev.weight
-      );
-
-    for (let listener of listeners) {
-      await runActions(listener.actions, listener.renderer, rendererEvent);
-
-      // 停止后续监听器执行
-      if (rendererEvent.stoped) {
-        break;
-      }
-    }
-
-    return rendererEvent;
-  },
   rendererResolver: resolveRenderer,
   replaceTextIgnoreKeys: [
     'type',
@@ -492,6 +422,13 @@ export function render(
       translate
     } as any;
 
+    if (options.enableAMISDebug) {
+      // 因为里面还有 render
+      setTimeout(() => {
+        enableDebug();
+      }, 10);
+    }
+
     store = RendererStore.create({}, options);
     stores[options.session || 'global'] = store;
   }
@@ -518,13 +455,13 @@ export function render(
   // 进行文本替换
   if (env.replaceText && isObject(env.replaceText)) {
     const replaceKeys = Object.keys(env.replaceText);
-    replaceKeys.sort().reverse(); // 避免用户将短的放前面
+    replaceKeys.sort((a, b) => b.length - a.length); // 避免用户将短的放前面
     const replaceTextIgnoreKeys = new Set(env.replaceTextIgnoreKeys || []);
     JSONTraverse(schema, (value: any, key: string, object: any) => {
       if (typeof value === 'string' && !replaceTextIgnoreKeys.has(key)) {
         for (const replaceKey of replaceKeys) {
           if (~value.indexOf(replaceKey)) {
-            object[key] = value.replaceAll(
+            value = object[key] = value.replaceAll(
               replaceKey,
               env.replaceText[replaceKey]
             );

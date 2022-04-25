@@ -62,7 +62,8 @@ export interface ButtonSchema extends BaseSchema {
     | 'link'
     | 'primary'
     | 'dark'
-    | 'light';
+    | 'light'
+    | 'secondary';
 
   /**
    * @deprecated 通过 level 来配置
@@ -613,7 +614,7 @@ export class Action extends React.Component<ActionProps, ActionState> {
     const {onAction, disabled, countDown, env} = this.props;
 
     // https://reactjs.org/docs/legacy-event-pooling.html
-    e.persist();
+    // e.persist(); // react 17之后去掉 event pooling 了，这个应该没用了
     let onClick = this.props.onClick;
 
     if (typeof onClick === 'string') {
@@ -752,6 +753,8 @@ export class Action extends React.Component<ActionProps, ActionState> {
       loading,
       body,
       render,
+      onMouseEnter,
+      onMouseLeave,
       classnames: cx,
       classPrefix: ns
     } = this.props;
@@ -767,7 +770,12 @@ export class Action extends React.Component<ActionProps, ActionState> {
           trigger={tooltipTrigger}
           rootClose={tooltipRootClose}
         >
-          <div className={cx('Action', className)} onClick={this.handleAction}>
+          <div
+            className={cx('Action', className)}
+            onClick={this.handleAction}
+            onMouseEnter={onMouseEnter}
+            onMouseLeave={onMouseLeave}
+          >
             {render('body', body) as JSX.Element}
           </div>
         </TooltipWrapper>
@@ -813,12 +821,14 @@ export class Action extends React.Component<ActionProps, ActionState> {
         loadingClassName={loadingClassName}
         loading={loading}
         onClick={this.handleAction}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
         type={type && ~allowedType.indexOf(type) ? type : 'button'}
         disabled={disabled}
         componentClass={isMenuItem ? 'a' : componentClass}
         overrideClassName={isMenuItem}
-        tooltip={filterContents(tooltip, data)}
-        disabledTip={filterContents(disabledTip, data)}
+        tooltip={tooltip}
+        disabledTip={disabledTip}
         tooltipPlacement={tooltipPlacement}
         tooltipContainer={tooltipContainer}
         tooltipTrigger={tooltipTrigger}
@@ -857,10 +867,7 @@ export class ActionRenderer extends React.Component<
     const {env, onAction, data, ignoreConfirm, dispatchEvent} = this.props;
 
     // 触发渲染器事件
-    const rendererEvent = await dispatchEvent(
-      e as React.MouseEvent<any>,
-      createObject(data, action)
-    );
+    const rendererEvent = await dispatchEvent(e as React.MouseEvent<any>, data);
 
     // 阻止原有动作执行
     if (rendererEvent?.prevented) {
@@ -874,6 +881,16 @@ export class ActionRenderer extends React.Component<
     } else {
       onAction(e, action, data);
     }
+  }
+
+  @autobind
+  handleMouseEnter(e: React.MouseEvent<any>) {
+    this.props.dispatchEvent(e, this.props.data);
+  }
+
+  @autobind
+  handleMouseLeave(e: React.MouseEvent<any>) {
+    this.props.dispatchEvent(e, this.props.data);
   }
 
   @autobind
@@ -891,6 +908,8 @@ export class ActionRenderer extends React.Component<
         env={env}
         disabled={disabled || btnDisabled}
         onAction={this.handleAction}
+        onMouseEnter={this.handleMouseEnter}
+        onMouseLeave={this.handleMouseLeave}
         loading={loading}
         isCurrentUrl={this.isCurrentAction}
         tooltipContainer={

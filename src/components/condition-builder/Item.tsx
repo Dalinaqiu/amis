@@ -1,4 +1,5 @@
 import React from 'react';
+import {findDOMNode} from 'react-dom';
 import {
   Fields,
   ConditionRule,
@@ -22,6 +23,7 @@ import GroupedSelection from '../GroupedSelection';
 import ResultBox from '../ResultBox';
 import {localeable, LocaleProps} from '../../locale';
 import {FormulaPickerProps} from '../formula/Picker';
+import {PlainObject} from '../../types';
 
 const option2value = (item: any) => item.value;
 
@@ -37,6 +39,8 @@ export interface ConditionItemProps extends ThemeProps, LocaleProps {
   onChange: (value: ConditionRule, index?: number) => void;
   fieldClassName?: string;
   formula?: FormulaPickerProps;
+  popOverContainer?: any;
+  renderEtrValue?: any;
 }
 
 export class ConditionItem extends React.Component<ConditionItemProps> {
@@ -89,12 +93,22 @@ export class ConditionItem extends React.Component<ConditionItemProps> {
     onChange(value, this.props.index);
   }
 
-  handleRightSubChange(index: number, rightValue: any) {
-    const origin = Array.isArray(this.props.value?.right)
-      ? this.props.value.right.concat()
-      : [];
+  handleRightSubChange(
+    isCustom: boolean,
+    index: number | string,
+    rightValue: any
+  ) {
+    let origin;
+    if (isCustom) {
+      origin = Object.assign({}, this.props.value?.right) as PlainObject;
+      origin[index] = rightValue;
+    } else {
+      origin = Array.isArray(this.props.value?.right)
+        ? this.props.value.right.concat()
+        : [];
+      origin[index as number] = rightValue;
+    }
 
-    origin[index] = rightValue;
     const value = {...this.props.value, right: origin};
     const onChange = this.props.onChange;
 
@@ -102,8 +116,16 @@ export class ConditionItem extends React.Component<ConditionItemProps> {
   }
 
   renderLeft() {
-    const {value, fields, funcs, config, disabled, fieldClassName, searchable} =
-      this.props;
+    const {
+      value,
+      fields,
+      funcs,
+      config,
+      disabled,
+      fieldClassName,
+      searchable,
+      popOverContainer
+    } = this.props;
     return (
       <Expression
         config={config}
@@ -114,6 +136,7 @@ export class ConditionItem extends React.Component<ConditionItemProps> {
         fields={fields}
         disabled={disabled}
         searchable={searchable}
+        popOverContainer={popOverContainer}
         allowedTypes={
           ['field', 'func'].filter(
             type => type === 'field' || type === 'func'
@@ -124,9 +147,17 @@ export class ConditionItem extends React.Component<ConditionItemProps> {
   }
 
   renderOperator() {
-    const {funcs, config, fields, value, classnames: cx, disabled} = this.props;
+    const {
+      funcs,
+      config,
+      fields,
+      value,
+      classnames: cx,
+      disabled,
+      popOverContainer
+    } = this.props;
     const left = value?.left;
-    let operators: Array<string> = [];
+    let operators: any[] = [];
 
     if ((left as ExpressionFunc)?.type === 'func') {
       const func: Func = findTree(
@@ -150,17 +181,25 @@ export class ConditionItem extends React.Component<ConditionItemProps> {
 
     if (Array.isArray(operators) && operators.length) {
       const __ = this.props.translate;
+      const options = operators.map(operator => {
+        if (typeof operator === 'string') {
+          return {
+            label: __(OperationMap[operator as keyof typeof OperationMap]),
+            value: operator
+          };
+        } else {
+          return operator;
+        }
+      });
       return (
         <PopOverContainer
+          popOverContainer={popOverContainer || (() => findDOMNode(this))}
           popOverRender={({onClose}) => (
             <GroupedSelection
               onClick={onClose}
               option2value={option2value}
               onChange={this.handleOperatorChange}
-              options={operators.map(operator => ({
-                label: __(OperationMap[operator as keyof typeof OperationMap]),
-                value: operator
-              }))}
+              options={options}
               value={value.op}
               multiple={false}
             />
@@ -175,9 +214,10 @@ export class ConditionItem extends React.Component<ConditionItemProps> {
                 )}
                 ref={ref}
                 allowInput={false}
-                result={__(
-                  OperationMap[value?.op as keyof typeof OperationMap]
-                )}
+                result={
+                  __(OperationMap[value?.op as keyof typeof OperationMap]) ||
+                  options.find(option => option.value === value.op)?.label
+                }
                 onResultChange={noop}
                 onResultClick={onClick}
                 disabled={disabled}
@@ -242,12 +282,16 @@ export class ConditionItem extends React.Component<ConditionItemProps> {
       config,
       classnames: cx,
       disabled,
-      formula
+      formula,
+      popOverContainer,
+      renderEtrValue
     } = this.props;
     let field = {
       ...config.types[type],
       type
     } as FieldSimple;
+
+    let option;
 
     if ((value?.left as ExpressionField)?.type === 'field') {
       const leftField: FieldSimple = findTree(
@@ -260,6 +304,9 @@ export class ConditionItem extends React.Component<ConditionItemProps> {
           ...field,
           ...leftField
         };
+        option = field.operators?.find(
+          option => typeof option !== 'string' && option?.value === op
+        );
       }
     }
 
@@ -274,7 +321,7 @@ export class ConditionItem extends React.Component<ConditionItemProps> {
             valueField={field}
             value={(value.right as Array<ExpressionComplex>)?.[0]}
             data={data}
-            onChange={this.handleRightSubChange.bind(this, 0)}
+            onChange={this.handleRightSubChange.bind(this, false, 0)}
             fields={fields}
             allowedTypes={
               field?.valueTypes ||
@@ -282,6 +329,8 @@ export class ConditionItem extends React.Component<ConditionItemProps> {
             }
             disabled={disabled}
             formula={formula}
+            popOverContainer={popOverContainer}
+            renderEtrValue={renderEtrValue}
           />
 
           <span className={cx('CBSeprator')}>~</span>
@@ -292,7 +341,7 @@ export class ConditionItem extends React.Component<ConditionItemProps> {
             valueField={field}
             value={(value.right as Array<ExpressionComplex>)?.[1]}
             data={data}
-            onChange={this.handleRightSubChange.bind(this, 1)}
+            onChange={this.handleRightSubChange.bind(this, false, 1)}
             fields={fields}
             allowedTypes={
               field?.valueTypes ||
@@ -300,11 +349,37 @@ export class ConditionItem extends React.Component<ConditionItemProps> {
             }
             disabled={disabled}
             formula={formula}
+            popOverContainer={popOverContainer}
+            renderEtrValue={renderEtrValue}
           />
         </>
       );
+    } else if (option && typeof option !== 'string' && option.values) {
+      return option.values.map((schema, i) => {
+        return (
+          <span key={i}>
+            <Expression
+              config={config}
+              op={op}
+              funcs={funcs}
+              valueField={schema}
+              value={value.right}
+              data={data}
+              onChange={this.handleRightSubChange.bind(this, true, schema.name)}
+              fields={fields}
+              allowedTypes={
+                field?.valueTypes ||
+                config.valueTypes || ['value', 'field', 'func', 'formula']
+              }
+              disabled={disabled}
+              formula={formula}
+              popOverContainer={popOverContainer}
+              renderEtrValue={renderEtrValue}
+            />
+          </span>
+        );
+      });
     }
-
     return (
       <Expression
         config={config}
@@ -321,6 +396,8 @@ export class ConditionItem extends React.Component<ConditionItemProps> {
         }
         disabled={disabled}
         formula={formula}
+        popOverContainer={popOverContainer}
+        renderEtrValue={renderEtrValue}
       />
     );
   }

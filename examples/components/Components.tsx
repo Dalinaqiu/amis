@@ -76,6 +76,15 @@ export const components = [
         )
       },
       {
+        label: 'Pagination分页',
+        path: '/zh-CN/components/pagination',
+        component: React.lazy(() =>
+          import('../../docs/zh-CN/components/pagination.md').then(
+            wrapDoc
+          )
+        )
+      },
+      {
         label: 'PaginationWrapper 分页容器',
         path: '/zh-CN/components/pagination-wrapper',
         component: React.lazy(() =>
@@ -173,7 +182,6 @@ export const components = [
           import('../../docs/zh-CN/components/service.md').then(wrapDoc)
         )
       },
-
       {
         label: 'Nav 导航',
         path: '/zh-CN/components/nav',
@@ -181,7 +189,6 @@ export const components = [
           import('../../docs/zh-CN/components/nav.md').then(wrapDoc)
         )
       },
-
       {
         label: 'AnchorNav 锚点导航',
         path: '/zh-CN/components/anchor-nav',
@@ -189,7 +196,13 @@ export const components = [
           import('../../docs/zh-CN/components/anchor-nav.md').then(wrapDoc)
         )
       },
-
+      {
+        label: 'TooltipWrapper 文字提示容器',
+        path: '/zh-CN/components/tooltip',
+        component: React.lazy(() =>
+          import('../../docs/zh-CN/components/tooltip-wrapper.md').then(wrapDoc)
+        )
+      },
       {
         label: 'PopOver 弹出提示',
         path: '/zh-CN/components/popover',
@@ -245,7 +258,7 @@ export const components = [
       {
         label: 'ButtonGroupSelect 按钮点选',
         path: '/zh-CN/components/form/button-group-select',
-        wrapDoc: React.lazy(() =>
+        component: React.lazy(() =>
           import(
             '../../docs/zh-CN/components/form/button-group-select.md'
           ).then(wrapDoc)
@@ -730,6 +743,16 @@ export const components = [
             wrapDoc
           )
         )
+      },
+
+      {
+        label: 'JsonSchema Editor',
+        path: '/zh-CN/components/form/json-schema-editor',
+        component: React.lazy(() =>
+          import('../../docs/zh-CN/components/form/json-schema-editor.md').then(
+            wrapDoc
+          )
+        )
       }
     ]
   },
@@ -752,6 +775,13 @@ export const components = [
           import('../../docs/zh-CN/components/table.md').then(wrapDoc)
         )
       },
+      // {
+      //   label: 'Table v2 表格',
+      //   path: '/zh-CN/components/table-v2',
+      //   component: React.lazy(() =>
+      //     import('../../docs/zh-CN/components/table-v2.md').then(wrapDoc)
+      //   )
+      // },
       {
         label: 'Table View 表格视图',
         path: '/zh-CN/components/table-view',
@@ -981,6 +1011,13 @@ export const components = [
         path: '/zh-CN/components/tpl',
         component: React.lazy(() =>
           import('../../docs/zh-CN/components/tpl.md').then(wrapDoc)
+        )
+      },
+      {
+        label: 'Tag 标签',
+        path: '/zh-CN/components/tag',
+        component: React.lazy(() =>
+          import('../../docs/zh-CN/components/tag.md').then(wrapDoc)
         )
       },
       {

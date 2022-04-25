@@ -106,6 +106,16 @@ export interface CRUDCommonSchema extends BaseSchema {
   perPage?: number;
 
   /**
+   * 默认排序字段
+   */
+  orderBy?: string;
+
+  /**
+   * 默认排序方向
+   */
+  orderDir?: 'asc' | 'desc';
+
+  /**
    * 可以默认给定初始参数如： {\"perPage\": 24}
    */
   defaultParams?: PlainObject;
@@ -394,6 +404,8 @@ export default class CRUD extends React.Component<CRUDProps, any> {
 
   control: any;
   lastQuery: any;
+  lastData: any;
+
   timer: ReturnType<typeof setTimeout>;
   mounted: boolean;
   constructor(props: CRUDProps) {
@@ -561,15 +573,11 @@ export default class CRUD extends React.Component<CRUDProps, any> {
     ) {
       dataInvalid = true;
     } else if (!props.api && isPureVariable(props.source)) {
-      const prev = resolveVariableAndFilter(
-        prevProps.source,
-        prevProps.data,
-        '| raw'
-      );
       const next = resolveVariableAndFilter(props.source, props.data, '| raw');
 
-      if (prev !== next) {
+      if (!this.lastData || this.lastData !== next) {
         store.initFromScope(props.data, props.source);
+        this.lastData = next;
       }
     }
 
@@ -772,11 +780,17 @@ export default class CRUD extends React.Component<CRUDProps, any> {
   }
 
   handleFilterInit(values: object) {
-    const {defaultParams, data, store} = this.props;
+    const {defaultParams, data, store, orderBy, orderDir} = this.props;
+    const params = {...defaultParams};
+
+    if (orderBy) {
+      params['orderBy'] = orderBy;
+      params['orderDir'] = orderDir || 'asc';
+    }
 
     this.handleFilterSubmit(
       {
-        ...defaultParams,
+        ...params,
         ...values,
         ...store.query
       },
@@ -1025,7 +1039,8 @@ export default class CRUD extends React.Component<CRUDProps, any> {
       env,
       loadDataOnce,
       loadDataOnceFetchOnFilter,
-      source
+      source,
+      columns
     } = this.props;
 
     // reload 需要清空用户选择。
@@ -1066,7 +1081,8 @@ export default class CRUD extends React.Component<CRUDProps, any> {
             pageField,
             perPageField,
             loadDataMode,
-            syncResponse2Query
+            syncResponse2Query,
+            columns: store.columns ?? columns
           })
           .then(value => {
             interval &&
@@ -1592,7 +1608,7 @@ export default class CRUD extends React.Component<CRUDProps, any> {
             `bulk-action/${index}`,
             {
               ...omit(btn, ['visibleOn', 'hiddenOn', 'disabledOn']),
-              type: 'button',
+              type: btn.type || 'button',
               ignoreConfirm: true
             },
             {
@@ -1975,7 +1991,9 @@ export default class CRUD extends React.Component<CRUDProps, any> {
 
     return (
       <div className={cx('Crud-selection')}>
-        <div className={cx('Crud-selectionLabel')}>{__('CRUD.selected')}</div>
+        <div className={cx('Crud-selectionLabel')}>
+          {__('CRUD.selected', {total: store.selectedItems.length})}
+        </div>
         {store.selectedItems.map((item, index) => (
           <div key={index} className={cx(`Crud-value`)}>
             <span

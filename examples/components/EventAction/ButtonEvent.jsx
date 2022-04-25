@@ -17,8 +17,32 @@ export default {
           actions: [
             {
               actionType: 'toast',
-              msgType: 'info',
-              msg: '派发点击事件'
+              args: {
+                msgType: 'info',
+                msg: '派发点击事件'
+              }
+            }
+          ]
+        },
+        mouseenter: {
+          actions: [
+            {
+              actionType: 'toast',
+              args: {
+                msgType: 'info',
+                msg: '派发鼠标移入事件'
+              }
+            }
+          ]
+        },
+        mouseleave: {
+          actions: [
+            {
+              actionType: 'toast',
+              args: {
+                msgType: 'info',
+                msg: '派发鼠标移出事件'
+              }
             }
           ]
         }
@@ -50,8 +74,10 @@ export default {
               actions: [
                 {
                   actionType: 'toast',
-                  msgType: 'info',
-                  msg: '派发点击事件'
+                  args: {
+                    msgType: 'info',
+                    msg: '派发点击事件'
+                  }
                 }
               ]
             }
@@ -65,8 +91,10 @@ export default {
               actions: [
                 {
                   actionType: 'toast',
-                  msgType: 'info',
-                  msg: '派发点击事件'
+                  args: {
+                    msgType: 'info',
+                    msg: '派发点击事件'
+                  }
                 }
               ]
             }
@@ -91,8 +119,10 @@ export default {
               actions: [
                 {
                   actionType: 'toast',
-                  msgType: 'info',
-                  msg: '派发点击事件'
+                  args: {
+                    msgType: 'info',
+                    msg: '派发点击事件'
+                  }
                 }
               ]
             }
@@ -106,8 +136,10 @@ export default {
               actions: [
                 {
                   actionType: 'toast',
-                  msgType: 'info',
-                  msg: '派发点击事件'
+                  args: {
+                    msgType: 'info',
+                    msg: '派发点击事件'
+                  }
                 }
               ]
             }
@@ -126,8 +158,10 @@ export default {
               actions: [
                 {
                   actionType: 'toast',
-                  msgType: 'info',
-                  msg: '派发点击事件'
+                  args: {
+                    msgType: 'info',
+                    msg: '派发点击事件'
+                  }
                 }
               ]
             }
@@ -141,8 +175,10 @@ export default {
               actions: [
                 {
                   actionType: 'toast',
-                  msgType: 'info',
-                  msg: '派发点击事件'
+                  args: {
+                    msgType: 'info',
+                    msg: '派发点击事件'
+                  }
                 }
               ]
             }
@@ -168,8 +204,10 @@ export default {
               actions: [
                 {
                   actionType: 'toast',
-                  msgType: 'info',
-                  msg: '派发点击事件'
+                  args: {
+                    msgType: 'info',
+                    msg: '派发点击事件'
+                  }
                 }
               ]
             }
@@ -183,8 +221,10 @@ export default {
               actions: [
                 {
                   actionType: 'toast',
-                  msgType: 'info',
-                  msg: '派发点击事件'
+                  args: {
+                    msgType: 'info',
+                    msg: '派发点击事件'
+                  }
                 }
               ]
             }
@@ -212,12 +252,64 @@ export default {
         }
       ],
       onEvent: {
+        change: {
+          actions: [
+            {
+              actionType: 'toast',
+              args: {
+                msgType: 'info',
+                msg: '派发点选事件'
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      type: 'tpl',
+      tpl: '6.作为容器',
+      inline: false,
+      wrapperComponent: 'h2'
+    },
+    {
+      type: 'action',
+      body: [
+        {
+          type: 'color',
+          value: '#108cee'
+        }
+      ],
+      onEvent: {
         click: {
           actions: [
             {
               actionType: 'toast',
-              msgType: 'info',
-              msg: '派发点击事件'
+              args: {
+                msgType: 'info',
+                msg: '派发点击事件'
+              }
+            }
+          ]
+        },
+        mouseenter: {
+          actions: [
+            {
+              actionType: 'toast',
+              args: {
+                msgType: 'info',
+                msg: '派发鼠标移入事件'
+              }
+            }
+          ]
+        },
+        mouseleave: {
+          actions: [
+            {
+              actionType: 'toast',
+              args: {
+                msgType: 'info',
+                msg: '派发鼠标移出事件'
+              }
             }
           ]
         }

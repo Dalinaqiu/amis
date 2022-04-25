@@ -32,12 +32,13 @@ import {flattenTree} from '../utils/helper';
 import {IRendererStore} from '.';
 import {normalizeOptions, optionValueCompare} from '../components/Select';
 import find from 'lodash/find';
+import isPlainObject from 'lodash/isPlainObject';
 import {SimpleMap} from '../utils/SimpleMap';
 import memoize from 'lodash/memoize';
 import {TranslateFn} from '../locale';
 import {StoreNode} from './node';
-import {dataMapping} from '../utils/tpl-builtin';
 import {getStoreById} from './manager';
+import {toast} from '../components';
 
 interface IOption {
   value?: string | number | null;
@@ -58,6 +59,7 @@ export const FormItemStore = StoreNode.named('FormItemStore')
   .props({
     isFocused: false,
     type: '',
+    label: '',
     unique: false,
     loading: false,
     required: false,
@@ -215,6 +217,7 @@ export const FormItemStore = StoreNode.named('FormItemStore')
   .actions(self => {
     const form = self.form as IFormStore;
     const dialogCallbacks = new SimpleMap<(result?: any) => void>();
+    let loadAutoUpdateCancel: Function | null = null;
 
     function config({
       required,
@@ -236,7 +239,8 @@ export const FormItemStore = StoreNode.named('FormItemStore')
       validateApi,
       maxLength,
       minLength,
-      validateOnChange
+      validateOnChange,
+      label
     }: {
       required?: boolean;
       unique?: boolean;
@@ -258,6 +262,7 @@ export const FormItemStore = StoreNode.named('FormItemStore')
       minLength?: number;
       maxLength?: number;
       validateOnChange?: boolean;
+      label?: string;
     }) {
       if (typeof rules === 'string') {
         rules = str2rules(rules);
@@ -285,6 +290,7 @@ export const FormItemStore = StoreNode.named('FormItemStore')
       typeof validateApi !== 'undefined' && (self.validateApi = validateApi);
       typeof validateOnChange !== 'undefined' &&
         (self.validateOnChange = !!validateOnChange);
+      typeof label === 'string' && (self.label = label);
 
       rules = {
         ...rules,
@@ -623,6 +629,43 @@ export const FormItemStore = StoreNode.named('FormItemStore')
       return json;
     });
 
+    const loadAutoUpdateData: (
+      api: Api,
+      data?: object,
+      silent?: boolean
+    ) => Promise<Payload> = flow(function* getAutoUpdateData(
+      api: string,
+      data: object,
+      silent: boolean = true
+    ) {
+      if (loadAutoUpdateCancel) {
+        loadAutoUpdateCancel();
+        loadAutoUpdateCancel = null;
+      }
+
+      const json: Payload = yield getEnv(self).fetcher(api, data, {
+        cancelExecutor: (executor: Function) =>
+          (loadAutoUpdateCancel = executor)
+      });
+      loadAutoUpdateCancel = null;
+
+      if (!json) {
+        return;
+      }
+
+      const result = json.data?.items || json.data?.rows;
+      // 只处理仅有一个结果的数据
+      if (result?.length === 1) {
+        return result[0];
+      } else if (isPlainObject(json.data)) {
+        return json.data;
+      }
+
+      !silent && toast.info(self.__('FormItem.autoUpdateloadFaild'));
+
+      return;
+    });
+
     const tryDeferLoadLeftOptions: (
       option: any,
       leftOptions: any,
@@ -723,8 +766,7 @@ export const FormItemStore = StoreNode.named('FormItemStore')
       // 插入新的子节点，用于之后BaseSelection.resolveSelected查找
       if (Array.isArray(topOption.children)) {
         const children = topOption.children.concat();
-
-        flattenTree(topOption.leftOptions).forEach(item => {
+        flattenTree(newLeftOptions).forEach(item => {
           if (!findTree(topOption.children, node => node.ref === item.value)) {
             children.push({ref: item.value, defer: true});
           }
@@ -1167,7 +1209,8 @@ export const FormItemStore = StoreNode.named('FormItemStore')
       changeTmpValue,
       changeEmitedValue,
       addSubFormItem,
-      removeSubFormItem
+      removeSubFormItem,
+      loadAutoUpdateData
     };
   });
 

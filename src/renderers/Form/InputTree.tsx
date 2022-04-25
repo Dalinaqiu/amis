@@ -8,6 +8,8 @@ import {
 } from './Options';
 import {Spinner} from '../../components';
 import {SchemaApi} from '../../Schema';
+import {autobind, createObject} from '../../utils/helper';
+import {Action} from '../../types';
 
 /**
  * Tree 下拉选择框。
@@ -37,7 +39,16 @@ export interface TreeControlSchema extends FormOptionsControl {
   showIcon?: boolean;
 
   /**
-   * 父子之间是否完全独立。
+   * ui级联关系，true代表级联选中，false代表不级联，默认为true
+   */
+  autoCheckChildren?: boolean;
+
+  /**
+   * 该属性代表数据级联关系，autoCheckChildren为true时生效，默认为false，具体数据级联关系如下：
+   * 1.casacde为false，ui行为为级联选中子节点，子节点禁用；值只包含父节点的值
+   * 2.cascade为false，withChildren为true，ui行为为级联选中子节点，子节点禁用；值包含父子节点的值
+   * 3.cascade为true，ui行为级联选中子节点，子节点可反选，值包含父子节点的值，此时withChildren属性失效
+   * 4.cascade不论为true还是false，onlyChildren为true，ui行为级联选中子节点，子节点可反选，值只包含子节点的值
    */
   cascade?: boolean;
 
@@ -92,16 +103,53 @@ export default class TreeControl extends React.Component<TreeProps> {
   static defaultProps: Partial<TreeProps> = {
     placeholder: 'loading',
     multiple: false,
-    rootLabel: '顶级',
+    rootLabel: 'Tree.root',
     rootValue: '',
     showIcon: true,
     enableNodePath: false,
     pathSeparator: '/'
   };
+  treeRef: any;
 
   reload() {
     const reload = this.props.reloadOptions;
     reload && reload();
+  }
+
+  doAction(action: Action, data: any, throwErrors: boolean) {
+    const {resetValue, onChange, options} = this.props;
+    if (action.actionType && ['clear', 'reset'].includes(action.actionType)) {
+      onChange && onChange(resetValue ?? '');
+    }
+    if (action.actionType === 'expand') {
+      this.treeRef.syncUnFolded(this.props, action.args.openLevel);
+    }
+    if (action.actionType === 'collapse') {
+      this.treeRef.syncUnFolded(this.props, 0);
+    }
+  }
+
+  @autobind
+  async handleChange(value: any) {
+    const {onChange, dispatchEvent, data} = this.props;
+
+    const rendererEvent = await dispatchEvent(
+      'change',
+      createObject(data, {
+        value
+      })
+    );
+
+    if (rendererEvent?.prevented) {
+      return;
+    }
+
+    onChange && onChange(value);
+  }
+
+  @autobind
+  domRef(ref: any) {
+    this.treeRef = ref;
   }
 
   render() {
@@ -112,7 +160,6 @@ export default class TreeControl extends React.Component<TreeProps> {
       value,
       enableNodePath,
       pathSeparator = '/',
-      onChange,
       disabled,
       joinValues,
       extractValue,
@@ -128,6 +175,7 @@ export default class TreeControl extends React.Component<TreeProps> {
       loading,
       hideRoot,
       rootLabel,
+      autoCheckChildren,
       cascade,
       rootValue,
       showIcon,
@@ -162,11 +210,12 @@ export default class TreeControl extends React.Component<TreeProps> {
         {loading ? null : (
           <TreeSelector
             classPrefix={ns}
+            onRef={this.domRef}
             labelField={labelField}
             valueField={valueField}
             iconField={iconField}
             disabled={disabled}
-            onChange={onChange}
+            onChange={this.handleChange}
             joinValues={joinValues}
             extractValue={extractValue}
             delimiter={delimiter}
@@ -183,6 +232,7 @@ export default class TreeControl extends React.Component<TreeProps> {
             showIcon={showIcon}
             showRadio={showRadio}
             showOutline={showOutline}
+            autoCheckChildren={autoCheckChildren}
             cascade={cascade}
             foldedField="collapsed"
             value={value || ''}

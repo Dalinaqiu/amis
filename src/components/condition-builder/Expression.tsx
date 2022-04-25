@@ -20,6 +20,7 @@ import {Config} from './config';
 import InputBox from '../InputBox';
 import Formula from './Formula';
 import {FormulaPickerProps} from '../formula/Picker';
+import {localeable, LocaleProps} from '../../locale';
 
 /**
  * 支持4中表达式设置方式
@@ -30,7 +31,7 @@ import {FormulaPickerProps} from '../formula/Picker';
  * 4. 粗暴点，函数让用户自己书写。
  */
 
-export interface ExpressionProps extends ThemeProps {
+export interface ExpressionProps extends ThemeProps, LocaleProps {
   value: ExpressionComplex;
   data?: any;
   index?: number;
@@ -45,6 +46,8 @@ export interface ExpressionProps extends ThemeProps {
   searchable?: boolean;
   fieldClassName?: string;
   formula?: FormulaPickerProps;
+  popOverContainer?: any;
+  renderEtrValue?: any;
 }
 
 const fieldMap = {
@@ -135,7 +138,9 @@ export class Expression extends React.Component<ExpressionProps> {
       data,
       disabled,
       searchable,
-      formula
+      formula,
+      popOverContainer,
+      renderEtrValue
     } = this.props;
     const inputType =
       ((value as any)?.type === 'field'
@@ -166,6 +171,8 @@ export class Expression extends React.Component<ExpressionProps> {
             data={data}
             disabled={disabled}
             formula={formula}
+            popOverContainer={popOverContainer}
+            renderEtrValue={renderEtrValue}
           />
         ) : null}
 
@@ -176,6 +183,7 @@ export class Expression extends React.Component<ExpressionProps> {
             fieldClassName={fieldClassName}
             disabled={disabled}
             searchable={searchable}
+            popOverContainer={popOverContainer}
             options={
               valueField
                 ? filterTree(
@@ -214,6 +222,7 @@ export class Expression extends React.Component<ExpressionProps> {
           <InputSwitch
             disabled={disabled}
             value={inputType}
+            popOverContainer={popOverContainer}
             onChange={this.handleInputTypeChange}
             options={types.map(item => ({
               label: fieldMap[item],
@@ -226,4 +235,4 @@ export class Expression extends React.Component<ExpressionProps> {
   }
 }
 
-export default themeable(Expression);
+export default themeable(localeable(Expression));

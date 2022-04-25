@@ -28,10 +28,10 @@ export default [
       },
 
       {
-        label: '1.2.0 版本变更',
-        path: '/zh-CN/docs/start/1-2-0',
+        label: '更新记录',
+        path: '/zh-CN/docs/start/changelog',
         component: React.lazy(() =>
-          import('../../docs/zh-CN/start/1-2-0.md').then(wrapDoc)
+          import('../../docs/zh-CN/start/changelog.md').then(wrapDoc)
         )
       },
 
@@ -90,6 +90,13 @@ export default [
         path: '/zh-CN/docs/concepts/linkage',
         component: React.lazy(() =>
           import('../../docs/zh-CN/concepts/linkage.md').then(wrapDoc)
+        )
+      },
+      {
+        label: '事件动作',
+        path: '/zh-CN/docs/concepts/event-action',
+        component: React.lazy(() =>
+          import('../../docs/zh-CN/concepts/event-action.md').then(wrapDoc)
         )
       },
       {

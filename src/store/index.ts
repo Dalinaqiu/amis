@@ -12,6 +12,7 @@ import {ComboStore} from './combo';
 import {FormStore} from './form';
 import {CRUDStore} from './crud';
 import {TableStore} from './table';
+import {TableStoreV2} from './table-v2';
 import {ListStore} from './list';
 import {ModalStore} from './modal';
 import {TranslateFn} from '../locale';
@@ -33,6 +34,7 @@ const allowedStoreList = [
   ComboStore,
   CRUDStore,
   TableStore,
+  TableStoreV2,
   ListStore,
   ModalStore,
   FormItemStore,
@@ -43,6 +45,10 @@ const allowedStoreList = [
 export const RendererStore = types
   .model('RendererStore', {
     storeType: 'RendererStore'
+  })
+  .props({
+    visibleState: types.optional(types.frozen(), {}),
+    disableState: types.optional(types.frozen(), {})
   })
   .views(self => ({
     get fetcher() {
@@ -91,6 +97,22 @@ export const RendererStore = types
     removeStore(store: IStoreNode) {
       // store.dispose();
       removeStore(store);
+    },
+
+    setVisible(id: string, value: boolean) {
+      const state = {
+        ...self.visibleState,
+        [id]: value
+      };
+      self.visibleState = state;
+    },
+
+    setDisable(id: string, value: boolean) {
+      const state = {
+        ...self.disableState,
+        [id]: value
+      };
+      self.disableState = state;
     }
   }));
 

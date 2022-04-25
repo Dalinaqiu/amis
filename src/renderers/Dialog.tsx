@@ -9,6 +9,7 @@ import {
   guid,
   isVisible,
   autobind,
+  createObject,
   isObjectShallowModified
 } from '../utils/helper';
 import {reaction} from 'mobx';
@@ -90,6 +91,11 @@ export interface DialogSchema extends BaseSchema {
    * 是否显示错误信息
    */
   showErrorMsg?: boolean;
+
+  /**
+   * 是否显示 spinner
+   */
+  showLoading?: boolean;
 }
 
 export type DialogSchemaBase = Omit<DialogSchema, 'type'>;
@@ -136,7 +142,7 @@ export default class Dialog extends React.Component<DialogProps> {
     'icon'
   ];
   static defaultProps = {
-    title: '弹框',
+    title: 'Dialog.title',
     bodyClassName: '',
     confirm: true,
     show: true,
@@ -437,13 +443,22 @@ export default class Dialog extends React.Component<DialogProps> {
       return null;
     }
 
-    const {store, render, classnames: cx, showErrorMsg} = this.props;
+    const {
+      store,
+      render,
+      classnames: cx,
+      showErrorMsg,
+      showLoading
+    } = this.props;
 
     return (
       <div className={cx('Modal-footer')}>
-        {store.loading || store.error ? (
+        {(showLoading !== false && store.loading) ||
+        (showErrorMsg !== false && store.error) ? (
           <div className={cx('Dialog-info')} key="info">
-            <Spinner size="sm" key="info" show={store.loading} />
+            {showLoading !== false ? (
+              <Spinner size="sm" key="info" show={store.loading} />
+            ) : null}
             {store.error && showErrorMsg !== false ? (
               <span className={cx('Dialog-error')}>{store.msg}</span>
             ) : null}
@@ -744,15 +759,18 @@ export class DialogRenderer extends Dialog {
     return false;
   }
 
-  handleAction(
-    e: React.UIEvent<any>,
+  doAction(action: Action, data: object, throwErrors: boolean): any {
+    this.handleAction(undefined, action, data);
+  }
+
+  async handleAction(
+    e: React.UIEvent<any> | void,
     action: Action,
     data: object,
     throwErrors: boolean = false,
     delegate?: IScopedContext
   ) {
-    const {onAction, store, onConfirm, env} = this.props;
-
+    const {onAction, store, onConfirm, env, dispatchEvent} = this.props;
     if (action.from === this.$$id) {
       return onAction
         ? onAction(e, action, data, throwErrors, delegate || this.context)
@@ -768,10 +786,24 @@ export class DialogRenderer extends Dialog {
       action.actionType === 'close' ||
       action.actionType === 'cancel'
     ) {
+      const rendererEvent = await dispatchEvent(
+        'cancel',
+        createObject(this.props.data, data)
+      );
+      if (rendererEvent?.prevented) {
+        return;
+      }
       store.setCurrentAction(action);
       this.handleSelfClose();
       action.close && this.closeTarget(action.close);
     } else if (action.actionType === 'confirm') {
+      const rendererEvent = await dispatchEvent(
+        'confirm',
+        createObject(this.props.data, data)
+      );
+      if (rendererEvent?.prevented) {
+        return;
+      }
       store.setCurrentAction(action);
       this.tryChildrenToHandle(
         {
@@ -924,5 +956,9 @@ export class DialogRenderer extends Dialog {
   closeTarget(target: string) {
     const scoped = this.context as IScopedContext;
     scoped.close(target);
+  }
+
+  setData(values: object) {
+    return this.props.store.updateData(values);
   }
 }

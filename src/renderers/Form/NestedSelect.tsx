@@ -62,6 +62,11 @@ export interface NestedSelectControlSchema extends FormOptionsControl {
   onlyChildren?: boolean;
 
   /**
+   * 只允许选择叶子节点
+   */
+  onlyLeaf?: boolean;
+
+  /**
    * 是否隐藏选择框中已选中节点的祖先节点的文本信息
    */
   hideNodePathLabel?: boolean;
@@ -91,10 +96,11 @@ export default class NestedSelectControl extends React.Component<
     cascade: false,
     withChildren: false,
     onlyChildren: false,
+    onlyLeaf: false,
     searchPromptText: 'Select.searchPromptText',
     noResultsText: 'noResult',
     checkAll: true,
-    checkAllLabel: '全选',
+    checkAllLabel: 'Select.checkAll',
     hideNodePathLabel: false
   };
   target: any;
@@ -241,7 +247,7 @@ export default class NestedSelectControl extends React.Component<
                         );
                       })
                     : label}
-                  {!isEnd && '>'}
+                  {!isEnd && ' > '}
                 </span>
               );
             })
@@ -252,7 +258,7 @@ export default class NestedSelectControl extends React.Component<
 
   @autobind
   async handleOptionClick(option: Option) {
-    const {multiple, onChange, joinValues, extractValue, valueField} =
+    const {multiple, onChange, joinValues, extractValue, valueField, onlyLeaf} =
       this.props;
 
     if (multiple) {
@@ -265,10 +271,21 @@ export default class NestedSelectControl extends React.Component<
       ? option[valueField || 'value']
       : option;
 
+    if (value === undefined) {
+      return;
+    }
+
+    if (onlyLeaf && option.children) {
+      return;
+    }
+
     const isPrevented = await this.dispatchEvent('change', {
       value
     });
     isPrevented || onChange(value);
+
+    isPrevented || this.handleResultClear();
+
     !multiple && this.close();
   }
 
@@ -283,11 +300,16 @@ export default class NestedSelectControl extends React.Component<
       withChildren,
       onlyChildren,
       cascade,
-      options
+      options,
+      onlyLeaf
     } = this.props;
     const {stack} = this.state;
 
     let valueField = this.props.valueField || 'value';
+
+    if (onlyLeaf && !Array.isArray(option) && option.children) {
+      return;
+    }
 
     if (
       !Array.isArray(option) &&
@@ -383,6 +405,8 @@ export default class NestedSelectControl extends React.Component<
       value: newValue
     });
     isPrevented || onChange(newValue);
+
+    isPrevented || this.handleResultClear();
   }
 
   allChecked(options: Options): boolean {
@@ -412,16 +436,44 @@ export default class NestedSelectControl extends React.Component<
   }
 
   @autobind
+  getValue() {
+    let {
+      selectedOptions,
+      joinValues,
+      valueField,
+      extractValue,
+      delimiter,
+      value
+    } = this.props;
+
+    if (joinValues) {
+      value = (selectedOptions as Options)
+        .map(item => item[valueField || 'value'])
+        .join(delimiter || ',');
+    } else if (extractValue) {
+      value = (selectedOptions as Options).map(
+        item => item[valueField || 'value']
+      );
+    }
+
+    return value;
+  }
+
+  @autobind
   async onFocus(e: any) {
     const {onFocus, disabled} = this.props;
+
+    const value = this.getValue();
 
     if (!disabled && !this.state.isOpened) {
       this.setState({
         isFocused: true
       });
 
-      const isPrevented = await this.dispatchEvent('focus', e);
-      isPrevented || onFocus && onFocus(e);
+      const isPrevented = await this.dispatchEvent('focus', {
+        value
+      });
+      isPrevented || (onFocus && onFocus(e));
     }
   }
 
@@ -429,12 +481,16 @@ export default class NestedSelectControl extends React.Component<
   async onBlur(e: any) {
     const {onBlur} = this.props;
 
+    const value = this.getValue();
+
     this.setState({
       isFocused: false
     });
 
-    const isPrevented = await this.dispatchEvent('blur', e);
-    isPrevented || onBlur && onBlur(e);
+    const isPrevented = await this.dispatchEvent('blur', {
+      value
+    });
+    isPrevented || (onBlur && onBlur(e));
   }
 
   @autobind
@@ -646,6 +702,7 @@ export default class NestedSelectControl extends React.Component<
     const {stack, inputValue} = this.state;
     const {
       classnames: cx,
+      translate: __,
       options: propOptions,
       labelField,
       cascade,
@@ -653,8 +710,13 @@ export default class NestedSelectControl extends React.Component<
       multiple,
       disabled,
       onlyChildren,
-      noResultsText
+      render
     } = this.props;
+
+    let noResultsText: any = this.props.noResultsText;
+    if (noResultsText) {
+      noResultsText = render('noResultText', __(noResultsText));
+    }
     const regexp = string2regExp(inputValue || '');
     const flattenTreeWithNodes = flattenTree(stack[0]).filter(option => {
       return regexp.test(option[labelField || 'label']);
@@ -823,7 +885,7 @@ export default class NestedSelectControl extends React.Component<
           useMobileUI={useMobileUI}
           disabled={disabled}
           ref={this.domRef}
-          placeholder={__(placeholder || '空')}
+          placeholder={__(placeholder ?? 'placeholder.empty')}
           className={cx(`NestedSelect`, {
             'NestedSelect--inline': inline,
             'NestedSelect--single': !multiple,
@@ -871,6 +933,7 @@ export default class NestedSelectControl extends React.Component<
             <Cascader
               onClose={this.close}
               {...this.props}
+              onChange={this.handleResultChange}
               options={this.props.options.slice()}
               value={selectedOptions}
             />
