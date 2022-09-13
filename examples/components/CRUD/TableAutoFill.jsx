@@ -142,15 +142,19 @@ export default {
           name: 'id',
           label: '主键',
           placeholder: '输入id'
-        }
+        },
+        fixed: 'left'
       },
       {
         name: 'engine',
-        label: 'Rendering engine'
+        label: 'Rendering engine',
+        fixed: 'left',
+        searchable: true
       },
       {
         name: 'browser',
         label: 'Browser',
+        width: 500,
         searchable: {
           type: 'select',
           name: 'browser',
@@ -174,7 +178,8 @@ export default {
       },
       {
         name: 'platform',
-        label: 'Platform(s)'
+        label: 'Platform(s)',
+        width: 500
       },
       {
         name: 'version',

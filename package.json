@@ -14,10 +14,12 @@
     "deploy-gh-page": "sh ./deploy-gh-pages.sh",
     "build": "npm run build --workspaces",
     "test": "npm test --workspaces",
+    "update-snapshot": "npm run update-snapshot --workspaces",
     "prepare": "husky install",
     "coverage": "jest --coverage",
     "version": "lerna version",
-    "release": "npm run build --workspaces && lerna publish from-package --registry=https://registry.npmjs.org",
+    "release": "npm run build --workspaces && lerna publish from-package --registry=https://registry.npmjs.org --ignore-scripts",
+    "revision": "ts-node ./scripts/generate-revision.ts",
     "publish-to-internal": "sh ./publish-to-internal.sh"
   },
   "dependencies": {
@@ -28,8 +30,9 @@
   },
   "devDependencies": {
     "@types/jest": "^28.1.0",
+    "echarts": "5.3.3",
     "fis-optimizer-terser": "^1.0.1",
-    "fis-parser-sass": "^1.1.1",
+    "fis-parser-sass": "^1.2.0",
     "fis-parser-svgr": "^1.0.0",
     "fis3": "^3.4.41",
     "fis3-deploy-skip-packed": "0.0.5",
@@ -46,7 +49,10 @@
     "jest": "^28.1.0",
     "jest-environment-jsdom": "^28.1.0",
     "lerna": "^5.0.0",
-    "ts-jest": "^28.0.3"
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "ts-jest": "^28.0.3",
+    "zrender": "^5.3.2"
   },
   "jest": {
     "verbose": true,

@@ -1,14 +1,16 @@
 {
   "name": "amis-formula",
-  "version": "2.0.0-rc.14",
+  "version": "2.2.0",
   "description": "负责 amis 里面的表达式实现，内置公式，编辑器等",
   "main": "lib/index.js",
+  "types": "lib/index.d.ts",
   "scripts": {
     "build": "npm run clean-dist && NODE_ENV=production rollup -c && npm run genDoc && npm run declaration ",
-    "lib": "npm run clean-dist && NODE_ENV=lib rollup -c",
+    "lib": "npm run clean-dist && NODE_ENV=production IS_LIB=1 rollup -c",
     "clean-dist": "rimraf lib/*",
     "declaration": "tsc --project tsconfig-for-declaration.json --allowJs --declaration --emitDeclarationOnly --declarationDir ./lib --rootDir ./src",
     "test": "jest",
+    "update-snapshot": "jest --updateSnapshot",
     "coverage": "jest --coverage",
     "genDoc": "ts-node ./scripts/genDoc.ts"
   },
@@ -33,14 +35,14 @@
   "homepage": "https://github.com/aisuda/amis-tpl#readme",
   "dependencies": {
     "lodash": "^4.17.15",
-    "moment": "^2.29.1",
+    "moment": "^2.29.4",
     "tslib": "^2.3.1"
   },
   "devDependencies": {
-    "@rollup/plugin-commonjs": "^22.0.0",
+    "@rollup/plugin-commonjs": "^22.0.2",
     "@rollup/plugin-json": "^4.1.0",
     "@rollup/plugin-node-resolve": "^13.3.0",
-    "@rollup/plugin-typescript": "^8.3.2",
+    "@rollup/plugin-typescript": "^8.3.4",
     "@types/doctrine": "0.0.5",
     "@types/jest": "^28.1.0",
     "@types/lodash": "^4.14.175",
@@ -54,7 +56,7 @@
     "rollup": "^2.60.2",
     "rollup-plugin-license": "^2.6.0",
     "rollup-plugin-terser": "^7.0.2",
-    "sass": "^1.36.0",
+    "sass": "^1.54.0",
     "sass-loader": "^12.1.0",
     "style-loader": "^3.2.1",
     "stylelint": "^13.0.0",
@@ -94,5 +96,5 @@
       }
     }
   },
-  "gitHead": "6affe8e364da3f1fe062c338237a8d1f0f304866"
+  "gitHead": "37d23b4a8eb1c663bc38e8dd9040889ea1526ec4"
 }

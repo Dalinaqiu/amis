@@ -314,7 +314,7 @@ export class Transfer<
 
     const newArr: Array<Option> = [];
     Array.isArray(value) &&
-      value.forEach(item => {
+      value.forEach((item: Option) => {
         if (!unuseArr.find(v => v.value === item.value)) {
           newArr.push(item);
         }
@@ -478,7 +478,7 @@ export class Transfer<
         }
         joinValues={false}
         showIcon={false}
-        multiple={true}
+        multiple={multiple}
         cascade={true}
         onlyChildren={!isTreeDeferLoad}
         itemRender={optionItemRender}
@@ -557,7 +557,7 @@ export class Transfer<
         onDeferLoad={onDeferLoad}
         joinValues={false}
         showIcon={false}
-        multiple={true}
+        multiple={multiple}
         cascade={true}
       />
     ) : selectMode === 'chained' ? (
@@ -628,46 +628,54 @@ export class Transfer<
     const placeholder =
       resultSearchPlaceholder || __('Transfer.selectFromLeft');
 
-    return resultSelectMode === 'table' ? (
-      <ResultTableList
-        classnames={cx}
-        columns={columns!}
-        options={options || []}
-        value={value}
-        disabled={disabled}
-        option2value={option2value}
-        cellRender={cellRender}
-        onChange={onChange}
-        multiple={false}
-        searchable={searchable}
-        placeholder={placeholder}
-        onSearch={onResultSearch}
-      />
-    ) : resultSelectMode === 'tree' ? (
-      <ResultTreeList
-        classnames={cx}
-        options={options}
-        valueField={'value'}
-        value={value || []}
-        onChange={onChange!}
-        itemRender={resultItemRender}
-        searchable={searchable}
-        placeholder={placeholder}
-        onSearch={onResultSearch}
-      />
-    ) : (
-      <ResultList
-        className={cx('Transfer-value')}
-        sortable={sortable}
-        disabled={disabled}
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder}
-        itemRender={resultItemRender}
-        searchable={searchable}
-        onSearch={onResultSearch}
-      />
-    );
+    switch (resultSelectMode) {
+      case 'table':
+        return (
+          <ResultTableList
+            classnames={cx}
+            columns={columns!}
+            options={options || []}
+            value={value}
+            disabled={disabled}
+            option2value={option2value}
+            cellRender={cellRender}
+            onChange={onChange}
+            multiple={false}
+            searchable={searchable}
+            placeholder={placeholder}
+            onSearch={onResultSearch}
+          />
+        );
+      case 'tree':
+        return (
+          <ResultTreeList
+            classnames={cx}
+            className={cx('Transfer-value')}
+            options={options}
+            valueField={'value'}
+            value={value || []}
+            onChange={onChange!}
+            itemRender={resultItemRender}
+            searchable={searchable}
+            placeholder={placeholder}
+            onSearch={onResultSearch}
+          />
+        );
+      default:
+        return (
+          <ResultList
+            className={cx('Transfer-value')}
+            sortable={sortable}
+            disabled={disabled}
+            value={value}
+            onChange={onChange}
+            placeholder={placeholder}
+            itemRender={resultItemRender}
+            searchable={searchable}
+            onSearch={onResultSearch}
+          />
+        );
+    }
   }
 
   render() {

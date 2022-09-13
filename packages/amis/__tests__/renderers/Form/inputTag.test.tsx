@@ -52,6 +52,14 @@ const setupInputTag = async (inputTagOptions: any = {}) => {
 };
 
 describe('Renderer:InputTag', () => {
+  test('InputTag with placeholder', async () => {
+    const placeholder = 'please input the tag';
+    const {container, input} = await setupInputTag({placeholder});
+
+    expect(input.placeholder).toBe(placeholder);
+    expect(container).toMatchSnapshot();
+  });
+
   test('InputTag with options', async () => {
     const {container, input} = await setupInputTag({
       options: ['Apple', 'Orange', 'Banana']
@@ -71,13 +79,13 @@ describe('Renderer:InputTag', () => {
     fireEvent.focus(input);
     await wait(500);
 
-    fireEvent.change(input, {target: {value: 'Watermelon'}});
+    fireEvent.change(input, {target: {value: 'Honey-dew melon'}});
     await wait(500);
 
     fireEvent.keyDown(input, {key: 'Enter', code: 13});
     await wait(500);
 
-    const option = screen.getByText('Watermelon');
+    const option = screen.getByText('Honey-dew melon');
     expect(option).toHaveClass('cxd-ResultBox-valueLabel');
     expect(container).toMatchSnapshot();
   });
@@ -160,7 +168,7 @@ describe('Renderer:InputTag', () => {
     expect(Banana).toBeNull();
 
     expect(container).toMatchSnapshot();
-  });
+  }, 6000);
 
   test('InputTag input with maxTagLength 5', async () => {
     const {container, input, queryByText} = await setupInputTag({
