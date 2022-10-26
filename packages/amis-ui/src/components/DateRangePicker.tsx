@@ -1178,8 +1178,11 @@ export class DateRangePicker extends React.Component<
           ? minDate
           : startDate
         : minDate || startDate;
-
-    if (minDate && currentDate.isBefore(minDate, precision)) {
+    // 在 dateTimeRange 的场景下，如果选择了开始时间的时间点不为 0，比如 2020-10-1 10:10，这时 currentDate 传入的当天值是 2020-10-1 00:00，这个值在起始时间后面，导致没法再选这一天了，所以在这时需要先通过将时间都转成 00 再比较
+    if (
+      minDate &&
+      currentDate.startOf('day').isBefore(minDate.startOf('day'), precision)
+    ) {
       return false;
     } else if (maxDate && currentDate.isAfter(maxDate, precision)) {
       return false;
@@ -1202,9 +1205,6 @@ export class DateRangePicker extends React.Component<
 
   renderDay(props: any, currentDate: moment.Moment) {
     let {startDate, endDate} = this.state;
-    // 剔除掉 DaysView 中传递的参数
-    props = omit(props, ['todayActiveStyle']);
-    props.className = props.className.replace('rdtActive', '');
 
     if (
       startDate &&
@@ -1399,15 +1399,21 @@ export class DateRangePicker extends React.Component<
         {embed ? null : (
           <div key="button" className={`${ns}DateRangePicker-actions`}>
             <a
-              className={cx('Button', 'Button--default')}
-              onClick={() => this.close()}
+              className={cx('Button', 'Button--default', 'Button--size-sm')}
+              onClick={() => this.close}
             >
               {__('cancel')}
             </a>
             <a
-              className={cx('Button', 'Button--primary', 'm-l-sm', {
-                'is-disabled': isConfirmBtnDisbaled
-              })}
+              className={cx(
+                'Button',
+                'Button--primary',
+                'Button--size-sm',
+                'm-l-sm',
+                {
+                  'is-disabled': isConfirmBtnDisbaled
+                }
+              )}
               onClick={this.confirm}
             >
               {__('confirm')}

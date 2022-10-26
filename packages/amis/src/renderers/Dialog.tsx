@@ -823,7 +823,8 @@ export class DialogRenderer extends Dialog {
     throwErrors: boolean = false,
     delegate?: IScopedContext
   ) {
-    const {onAction, store, onConfirm, env, dispatchEvent} = this.props;
+    const {onAction, store, onConfirm, env, dispatchEvent, onClose} =
+      this.props;
     if (action.from === this.$$id) {
       return onAction
         ? onAction(e, action, data, throwErrors, delegate || this.context)
@@ -846,8 +847,11 @@ export class DialogRenderer extends Dialog {
       if (rendererEvent?.prevented) {
         return;
       }
+
       store.setCurrentAction(action);
-      this.handleSelfClose();
+      // clear error
+      store.updateMessage();
+      onClose();
       action.close && this.closeTarget(action.close);
     } else if (action.actionType === 'confirm') {
       const rendererEvent = await dispatchEvent(
@@ -857,15 +861,22 @@ export class DialogRenderer extends Dialog {
       if (rendererEvent?.prevented) {
         return;
       }
+
       store.setCurrentAction(action);
-      this.tryChildrenToHandle(
+      const handleResult = this.tryChildrenToHandle(
         {
           ...action,
           actionType: 'submit'
         },
         data,
         action
-      ) || this.handleSelfClose(undefined, true);
+      );
+
+      if (!handleResult) {
+        // clear error
+        store.updateMessage();
+        onClose(true);
+      }
     } else if (action.actionType === 'next' || action.actionType === 'prev') {
       store.setCurrentAction(action);
       if (action.type === 'submit') {

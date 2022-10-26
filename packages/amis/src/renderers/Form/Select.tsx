@@ -4,7 +4,8 @@ import {
   OptionsControl,
   OptionsControlProps,
   Option,
-  FormOptionsControl
+  FormOptionsControl,
+  resolveEventData
 } from 'amis-core';
 import {normalizeOptions} from 'amis-core';
 import find from 'lodash/find';
@@ -20,6 +21,7 @@ import {TransferDropDown} from 'amis-ui';
 
 import type {SchemaClassName} from '../../Schema';
 import type {TooltipObject} from 'amis-ui/lib/components/TooltipWrapper';
+import {supportStatic} from './StaticHoc';
 
 /**
  * Select 下拉选择框。
@@ -201,11 +203,13 @@ export default class SelectControl extends React.Component<SelectProps, any> {
     this.input && this.input.focus();
   }
 
-  getValue(value: Option | Array<Option> | string | void) {
+  getValue(
+    value: Option | Array<Option> | string | void,
+    additonalOptions: Array<any> = []
+  ) {
     const {joinValues, extractValue, delimiter, multiple, valueField, options} =
       this.props;
     let newValue: string | Option | Array<Option> | void = value;
-    let additonalOptions: Array<any> = [];
 
     (Array.isArray(value) ? value : value ? [value] : []).forEach(
       (option: any) => {
@@ -251,12 +255,17 @@ export default class SelectControl extends React.Component<SelectProps, any> {
     // 触发渲染器事件
     const rendererEvent = await dispatchEvent(
       eventName,
-      createObject(data, {
-        options,
-        value: ['onEdit', 'onDelete'].includes(event)
-          ? eventData
-          : eventData && eventData.value
-      })
+      resolveEventData(
+        this.props,
+        {
+          options,
+          items: options, // 为了保持名字统一
+          value: ['onEdit', 'onDelete'].includes(event)
+            ? eventData
+            : eventData && eventData.value
+        },
+        'value'
+      )
     );
     if (rendererEvent?.prevented) {
       return;
@@ -268,17 +277,26 @@ export default class SelectControl extends React.Component<SelectProps, any> {
   async changeValue(value: Option | Array<Option> | string | void) {
     const {onChange, setOptions, options, data, dispatchEvent} = this.props;
 
-    let newValue: string | Option | Array<Option> | void = this.getValue(value);
     let additonalOptions: Array<any> = [];
+    let newValue: string | Option | Array<Option> | void = this.getValue(
+      value,
+      additonalOptions
+    );
+
     // 不设置没法回显
     additonalOptions.length && setOptions(options.concat(additonalOptions));
 
     const rendererEvent = await dispatchEvent(
       'change',
-      createObject(data, {
-        value: newValue,
-        options
-      })
+      resolveEventData(
+        this.props,
+        {
+          value: newValue,
+          options,
+          items: options // 为了保持名字统一
+        },
+        'value'
+      )
     );
     if (rendererEvent?.prevented) {
       return;
@@ -398,6 +416,7 @@ export default class SelectControl extends React.Component<SelectProps, any> {
     }
   }
 
+  @supportStatic()
   render() {
     let {
       autoComplete,
@@ -531,7 +550,7 @@ class TransferDropdownRenderer extends BaseTransferRenderer<TransferDropDownProp
     if (
       selectMode === 'associated' &&
       options &&
-      options.length === 1 &&
+      options.length &&
       options[0].leftOptions &&
       Array.isArray(options[0].children)
     ) {

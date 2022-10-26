@@ -6,7 +6,12 @@ import {filter} from 'amis-core';
 import './ColumnToggler';
 import {TableStore} from 'amis-core';
 import {saveAs} from 'file-saver';
-import {getVariable, removeHTMLTag, createObject} from 'amis-core';
+import {
+  getVariable,
+  removeHTMLTag,
+  decodeEntity,
+  createObject
+} from 'amis-core';
 import {isPureVariable, resolveVariableAndFilter} from 'amis-core';
 import {BaseSchema} from '../../Schema';
 import {toDataURL, getImageDimensions} from 'amis-core';
@@ -47,11 +52,25 @@ export async function exportExcel(
       env.notify('warning', __('placeholder.noData'));
       return;
     }
+    /**
+     * 优先找items和rows，找不到就拿第一个值为数组的字段
+     * 和CRUD中的处理逻辑保持一致，避免能渲染和导出的不一致
+     */
     if (Array.isArray(res.data)) {
       rows = res.data;
+    } else if (Array.isArray(res.data?.rows)) {
+      rows = res.data.rows;
+    } else if (Array.isArray(res.data?.items)) {
+      rows = res.data.items;
     } else {
-      rows = res.data.rows || res.data.items;
+      for (const key of Object.keys(res.data)) {
+        if (res.data.hasOwnProperty(key) && Array.isArray(res.data[key])) {
+          rows = res.data[key];
+          break;
+        }
+      }
     }
+
     // 因为很多方法是 store 里的，所以需要构建 store 来处理
     tmpStore = TableStore.create(getSnapshot(store));
     tmpStore.initRows(rows);
@@ -283,7 +302,7 @@ export async function exportExcel(
       } else {
         if (column.pristine.tpl) {
           sheetRow.getCell(columIndex).value = removeHTMLTag(
-            filter(column.pristine.tpl, rowData)
+            decodeEntity(filter(column.pristine.tpl, rowData))
           );
         } else {
           sheetRow.getCell(columIndex).value = value;

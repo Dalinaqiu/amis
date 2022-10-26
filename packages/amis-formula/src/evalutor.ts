@@ -11,6 +11,7 @@ import truncate from 'lodash/truncate';
 import uniqWith from 'lodash/uniqWith';
 import uniqBy from 'lodash/uniqBy';
 import isEqual from 'lodash/isEqual';
+import isPlainObject from 'lodash/isPlainObject';
 import {EvaluatorOptions, FilterContext, FilterMap, FunctionMap} from './types';
 
 export class Evaluator {
@@ -106,7 +107,7 @@ export class Evaluator {
       const filter = filters.shift()!;
       const fn = this.filters[filter.name];
       if (!fn) {
-        throw new Error(`filter \`${filter.name}\` not exits`);
+        throw new Error(`filter \`${filter.name}\` not exists.`);
       }
       context.filter = filter;
       input = fn.apply(
@@ -542,7 +543,7 @@ export class Evaluator {
   }
 
   /**
-   * 异或处理，两个表达式同时为「真」，或者同时为「假」，则结果返回为「真」
+   * 异或处理，多个表达式组中存在奇数个真时认为真。
    *
    * @example XOR(condition1, condition2)
    * @param {expression} condition1 - 条件表达式1
@@ -551,8 +552,8 @@ export class Evaluator {
    *
    * @returns {boolean}
    */
-  fnXOR(c1: () => any, c2: () => any) {
-    return !!c1() === !!c2();
+  fnXOR(...condtions: Array<() => any>) {
+    return !!(condtions.filter(c => c()).length % 2);
   }
 
   /**
@@ -896,10 +897,15 @@ export class Evaluator {
    */
   fnUPPERMONEY(n: number) {
     n = this.formatNumber(n);
+    const maxLen = 14;
+    if (n.toString().split('.')[0]?.length > maxLen) {
+      return `最大数额只支持到兆(既小数点前${maxLen}位)`;
+    }
+
     const fraction = ['角', '分'];
     const digit = ['零', '壹', '贰', '叁', '肆', '伍', '陆', '柒', '捌', '玖'];
     const unit = [
-      ['元', '万', '亿'],
+      ['元', '万', '亿', '兆'],
       ['', '拾', '佰', '仟']
     ];
     const head = n < 0 ? '欠' : '';
@@ -1149,9 +1155,9 @@ export class Evaluator {
   /**
    * 对文本进行 HTML 转义
    *
-   * 示例 `ESCAPE("star")`
+   * 示例 `ESCAPE("<star>&")`
    *
-   * 返回 `Star`
+   * 返回 `&lt;start&gt;&amp;`
    *
    * @example ESCAPE(text)
    * @param {string} text - 文本
@@ -1800,8 +1806,28 @@ export class Evaluator {
       throw new Error('expected an anonymous function get ' + iterator);
     }
 
-    return (Array.isArray(value) ? value : []).map((item, index) =>
-      this.callAnonymousFunction(iterator, [item, index])
+    return (Array.isArray(value) ? value : []).map((item, index, arr) =>
+      this.callAnonymousFunction(iterator, [item, index, arr])
+    );
+  }
+
+  /**
+   * 数据做数据过滤，需要搭配箭头函数一起使用，注意箭头函数只支持单表达式用法。
+   * 将第二个箭头函数返回为 false 的成员过滤掉。
+   *
+   * @param {Array<any>} arr 数组
+   * @param {Function<any>} iterator 箭头函数
+   * @namespace 数组
+   * @example ARRAYFILTER(arr, item => item)
+   * @returns {boolean} 结果
+   */
+  fnARRAYFILTER(value: any, iterator: any) {
+    if (!iterator || iterator.type !== 'anonymous_function') {
+      throw new Error('expected an anonymous function get ' + iterator);
+    }
+
+    return (Array.isArray(value) ? value : []).filter((item, index, arr) =>
+      this.callAnonymousFunction(iterator, [item, index, arr])
     );
   }
 
@@ -1889,6 +1915,40 @@ export class Evaluator {
   fnUNIQ(arr: any[], field?: string) {
     return field ? uniqBy(arr, field) : uniqWith(arr, isEqual);
   }
+
+  /**
+   * 判断是否为类型支持：string, number, array, date, plain-object。
+   *
+   * @param {string} 判断对象
+   * @namespace 其他
+   * @example ISTYPE([{a: '1'}, {b: '2'}, {a: '1'}], 'array')
+   * @returns {boolean} 结果结果
+   */
+  fnISTYPE(
+    target: any,
+    type: 'string' | 'number' | 'array' | 'date' | 'plain-object' | 'nil'
+  ) {
+    switch (type) {
+      case 'string':
+        return typeof target === 'string';
+
+      case 'number':
+        return typeof target === 'number';
+
+      case 'array':
+        return Array.isArray(target);
+
+      case 'date':
+        return !!(target && target instanceof Date);
+
+      case 'plain-object':
+        return isPlainObject(target);
+
+      case 'nil':
+        return !target;
+    }
+    return false;
+  }
 }
 
 function getCookie(name: string) {
@@ -1910,7 +1970,7 @@ function parseJson(str: string, defaultValue?: any) {
 
 function stripNumber(number: number) {
   if (typeof number === 'number' && !Number.isInteger(number)) {
-    return parseFloat(number.toPrecision(12));
+    return parseFloat(number.toPrecision(16));
   } else {
     return number;
   }

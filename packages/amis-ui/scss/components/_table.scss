@@ -420,7 +420,7 @@
         }
       }
 
-      @if var(--Table-strip-bg) !=transparent {
+      @if $Table-strip-bg != transparent {
         background: transparent;
 
         &.#{$ns}Table-tr--odd {
@@ -1003,6 +1003,20 @@
       .#{$ns}Table-SFToggler-arrow > svg {
         transform: rotate(180deg);
       }
+    }
+  }
+}
+
+.#{$ns}InputTable {
+  .#{$ns}Field--quickEditable svg {
+    color: var(--primary);
+
+    &:hover {
+      color: var(--primary-onHover);
+    }
+
+    &:active {
+      color: var(--primary-onActive);
     }
   }
 }

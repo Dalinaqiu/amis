@@ -1,11 +1,15 @@
 import React from 'react';
+import isInteger from 'lodash/isInteger';
 // @ts-ignore
 import InputNumber from 'rc-input-number';
 import getMiniDecimal, {
   DecimalClass,
   toFixed
 } from 'rc-input-number/lib/utils/MiniDecimal';
-import {getNumberPrecision} from 'rc-input-number/lib/utils/numberUtil';
+import {
+  getNumberPrecision,
+  num2str
+} from 'rc-input-number/lib/utils/numberUtil';
 
 import {Icon} from './icons';
 import {ThemeProps, themeable} from 'amis-core';
@@ -51,19 +55,60 @@ export interface NumberProps extends ThemeProps {
    */
   displayMode?: 'base' | 'enhance';
   keyboard?: Boolean;
+
+  /**
+   * 是否是大数
+   */
+  big?: boolean;
+
+  /**
+   * 清空输入内容时的值
+   */
+  resetValue?: any;
 }
 
 export class NumberInput extends React.Component<NumberProps, any> {
-  static defaultProps: Pick<NumberProps, 'step' | 'readOnly' | 'borderMode'> = {
+  static defaultProps: Pick<
+    NumberProps,
+    'step' | 'readOnly' | 'borderMode' | 'resetValue'
+  > = {
     step: 1,
     readOnly: false,
-    borderMode: 'full'
+    borderMode: 'full',
+    resetValue: ''
   };
 
-  @autobind
-  handleChange(value: any) {
-    const {min, max, onChange} = this.props;
+  /**
+   * 处理value值
+   *
+   * @param value value 值
+   * @param min 最小值
+   * @param max 最大值
+   * @param precision 精度
+   * @param resetValue 重置值
+   * @param isBig 是否为大数模式
+   */
+  static normalizeValue = (
+    value: any,
+    min: number | undefined,
+    max: number | undefined,
+    precision: number,
+    resetValue: any,
+    isBig: boolean | undefined
+  ) => {
+    /**
+     * 输入不合法时重置为resetValue
+     * 若resetValue为非数字，则直接重置
+     * 若resetValue为数字，则需要处理max，min，precision，保证抛出的值满足条件
+     */
+    if (value == null) {
+      if (typeof resetValue !== 'number') {
+        return resetValue ?? '';
+      }
 
+      value = resetValue;
+    }
+    // 处理max & min
     if (typeof value === 'number') {
       if (typeof min === 'number') {
         value = Math.max(value, min);
@@ -73,9 +118,87 @@ export class NumberInput extends React.Component<NumberProps, any> {
         value = Math.min(value, max);
       }
     }
+    // 处理string类型输入
+    if (typeof value === 'string') {
+      let val = getMiniDecimal(value);
+      if (typeof min !== 'undefined') {
+        let minValue = getMiniDecimal(min);
+        if (val.lessEquals(minValue)) {
+          value = min;
+        }
+      }
+      if (typeof max !== 'undefined') {
+        let maxValue = getMiniDecimal(max);
+        if (maxValue.lessEquals(val)) {
+          value = max;
+        }
+      }
+    }
+    /**
+     * 非大数模式下，如果精度不满足要求，需要处理value值，遵循四舍五入的处理规则
+     */
+    if (!isBig && getNumberPrecision(value) !== precision) {
+      value = getMiniDecimal(
+        toFixed(num2str(value), '.', precision)
+      ).toNumber();
+    }
 
-    onChange?.(value);
+    return value;
+  };
+
+  /**
+   * 获取精度，合法的精度为0和正整数，不合法的精度统一转化为0
+   * 若设置了step，则会基于step的精度生成，最终使用更高的精度
+   *
+   * @param precision 精度
+   * @param step 步长
+   */
+  static normalizePrecision = (precision: any, step?: number): number => {
+    if (
+      typeof precision === 'number' &&
+      isInteger(precision) &&
+      precision >= 0
+    ) {
+      return Math.max(precision, getNumberPrecision(step ?? 1));
+    }
+
+    // 如果设置了step，就基于step和precision，选取更高精度
+    if (step != null) {
+      return Math.max(0, getNumberPrecision(step));
+    }
+
+    return 0;
+  };
+
+  /**
+   * 是否是 bigNumber，如果输入的内容是字符串就自动开启
+   */
+  isBig: boolean = false;
+
+  constructor(props: NumberProps) {
+    super(props);
+    const value = props.value;
+    if (typeof value === 'string' || props.big) {
+      this.isBig = true;
+    }
   }
+
+  @autobind
+  handleChange(value: any) {
+    const {min, max, step, precision, resetValue, onChange} = this.props;
+    const finalPrecision = NumberInput.normalizePrecision(precision, step);
+    const result = NumberInput.normalizeValue(
+      value,
+      min,
+      max,
+      finalPrecision,
+      resetValue,
+      this.isBig
+    );
+
+    onChange?.(result);
+  }
+
   @autobind
   handleFocus(e: React.SyntheticEvent<HTMLElement>) {
     const {onFocus} = this.props;
@@ -87,18 +210,19 @@ export class NumberInput extends React.Component<NumberProps, any> {
     const {onBlur} = this.props;
     onBlur && onBlur(e);
   }
+
   @autobind
   handleEnhanceModeChange(action: 'add' | 'subtract'): void {
-    const {value, step, disabled, readOnly, precision} = this.props;
+    const {value, step = 1, disabled, readOnly, precision} = this.props;
     // value为undefined会导致溢出错误
-    let val = Number(value) || 0;
+    let val = value || 0;
     if (disabled || readOnly) {
       return;
     }
     if (isNaN(Number(step)) || !Number(step)) {
       return;
     }
-    let stepDecimal = getMiniDecimal(Number(step));
+    let stepDecimal = getMiniDecimal(step);
     if (action !== 'add') {
       stepDecimal = stepDecimal.negate();
     }
@@ -119,16 +243,21 @@ export class NumberInput extends React.Component<NumberProps, any> {
       let updateValue = newValue;
       const numStr = updateValue.toString();
       const mergedPrecision = getPrecision(numStr);
-      if (mergedPrecision! >= 0) {
+      if (mergedPrecision >= 0) {
         updateValue = getMiniDecimal(toFixed(numStr, '.', mergedPrecision));
       }
 
       return updateValue;
     };
     const updatedValue = triggerValueUpdate(target, false);
-    val = Number(updatedValue.toString());
-    this.handleChange(val);
+    if (this.isBig) {
+      this.handleChange(updatedValue.toString());
+    } else {
+      val = Number(updatedValue.toString());
+      this.handleChange(val);
+    }
   }
+
   @autobind
   renderBase() {
     const {
@@ -142,7 +271,6 @@ export class NumberInput extends React.Component<NumberProps, any> {
       min,
       disabled,
       placeholder,
-      onChange,
       showSteps,
       formatter,
       parser,
@@ -152,12 +280,10 @@ export class NumberInput extends React.Component<NumberProps, any> {
       inputRef,
       keyboard
     } = this.props;
+    const precisionProps: any = {
+      precision: NumberInput.normalizePrecision(precision, step)
+    };
 
-    let precisionProps: any = {};
-
-    if (typeof precision === 'number') {
-      precisionProps.precision = precision;
-    }
     return (
       <InputNumber
         className={cx(
@@ -182,6 +308,7 @@ export class NumberInput extends React.Component<NumberProps, any> {
         placeholder={placeholder}
         onFocus={this.handleFocus}
         onBlur={this.handleBlur}
+        stringMode={this.isBig ? true : false}
         keyboard={keyboard}
         {...precisionProps}
       />
@@ -189,10 +316,8 @@ export class NumberInput extends React.Component<NumberProps, any> {
   }
   render(): JSX.Element {
     const {
-      classPrefix: ns,
       classnames: cx,
       value,
-      precision,
       max,
       min,
       disabled,
@@ -202,11 +327,6 @@ export class NumberInput extends React.Component<NumberProps, any> {
       displayMode
     } = this.props;
 
-    let precisionProps: any = {};
-
-    if (typeof precision === 'number') {
-      precisionProps.precision = precision;
-    }
     return (
       <>
         {displayMode === 'enhance' ? (

@@ -4,7 +4,8 @@ import find from 'lodash/find';
 import {
   OptionsControlProps,
   OptionsControl,
-  FormOptionsControl
+  FormOptionsControl,
+  resolveEventData
 } from 'amis-core';
 import {Transfer} from 'amis-ui';
 import type {Option} from 'amis-core';
@@ -26,6 +27,7 @@ import {Selection as BaseSelection} from 'amis-ui';
 import {ResultList} from 'amis-ui';
 import {ActionObject} from 'amis-core';
 import type {ItemRenderStates} from 'amis-ui/lib/components/Selection';
+import {supportStatic} from './StaticHoc';
 
 /**
  * Transfer
@@ -128,6 +130,11 @@ export interface TransferControlSchema extends FormOptionsSchema {
    * 右侧列表搜索框提示
    */
   resultSearchPlaceholder?: string;
+
+  /**
+   * 统计数字
+   */
+  statistics?: boolean;
 }
 
 export interface BaseTransferProps
@@ -202,16 +209,41 @@ export class BaseTransferRenderer<
         joinValues || extractValue
           ? value[(valueField as string) || 'value']
           : value;
+      const indexes = findTreeIndex(
+        options,
+        optionValueCompare(
+          value[(valueField as string) || 'value'],
+          (valueField as string) || 'value'
+        )
+      );
+
+      if (!indexes) {
+        newOptions.push(value);
+      } else if (optionModified) {
+        const origin = getTree(newOptions, indexes);
+        newOptions = spliceTree(newOptions, indexes, 1, {
+          ...origin,
+          ...value
+        });
+      }
     }
 
     (newOptions.length > options.length || optionModified) &&
       setOptions(newOptions, true);
 
     // 触发渲染器事件
-    const rendererEvent = await dispatchEvent('change', {
-      value: newValue,
-      options
-    });
+    const rendererEvent = await dispatchEvent(
+      'change',
+      resolveEventData(
+        this.props,
+        {
+          value: newValue,
+          options,
+          items: options // 为了保持名字统一
+        },
+        'value'
+      )
+    );
     if (rendererEvent?.prevented) {
       return;
     }
@@ -253,7 +285,7 @@ export class BaseTransferRenderer<
         const result =
           payload.data.options || payload.data.items || payload.data;
         if (!Array.isArray(result)) {
-          throw new Error('CRUD.invalidArray');
+          throw new Error(__('CRUD.invalidArray'));
         }
 
         return result.map(item => {
@@ -326,7 +358,7 @@ export class BaseTransferRenderer<
       });
     }
 
-    return ResultList.itemRender(option);
+    return ResultList.itemRender(option, states);
   }
 
   @autobind
@@ -364,8 +396,8 @@ export class BaseTransferRenderer<
 
   @autobind
   onSelectAll(options: Option[]) {
-    const {dispatchEvent} = this.props;
-    dispatchEvent('selectAll', options);
+    const {dispatchEvent, data} = this.props;
+    dispatchEvent('selectAll', createObject(data, {items: options}));
   }
 
   // 动作
@@ -384,6 +416,7 @@ export class BaseTransferRenderer<
     }
   }
 
+  @supportStatic()
   render() {
     let {
       className,
@@ -407,7 +440,9 @@ export class BaseTransferRenderer<
       searchPlaceholder,
       resultListModeFollowSelect = false,
       resultSearchPlaceholder,
-      resultSearchable = false
+      resultSearchable = false,
+      statistics,
+      labelField
     } = this.props;
 
     // 目前 LeftOptions 没有接口可以动态加载
@@ -454,6 +489,8 @@ export class BaseTransferRenderer<
           searchPlaceholder={searchPlaceholder}
           resultSearchable={resultSearchable}
           resultSearchPlaceholder={resultSearchPlaceholder}
+          statistics={statistics}
+          labelField={labelField}
           optionItemRender={this.optionItemRender}
           resultItemRender={this.resultItemRender}
           onSelectAll={this.onSelectAll}

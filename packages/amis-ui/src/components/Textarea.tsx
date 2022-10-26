@@ -142,9 +142,10 @@ export class Textarea extends React.Component<TextAreaProps, TextAreaState> {
         focused: false
       },
       () => {
-        if (trimContents && value && typeof value === 'string') {
-          onChange?.(value.trim());
-        }
+        // 和renderer的重复了，不知道这里干啥的，先注释了
+        // if (trimContents && value && typeof value === 'string') {
+        //   onChange?.(value.trim());
+        // }
 
         onBlur && onBlur(e);
       }
@@ -202,6 +203,7 @@ export class Textarea extends React.Component<TextAreaProps, TextAreaState> {
           placeholder={placeholder}
           autoCorrect="off"
           spellCheck="false"
+          maxLength={maxLength}
           readOnly={readOnly}
           minRows={minRows || undefined}
           maxRows={maxRows || undefined}

@@ -3,7 +3,8 @@ import {
   OptionsControl,
   OptionsControlProps,
   highlight,
-  FormOptionsControl
+  FormOptionsControl,
+  resolveEventData
 } from 'amis-core';
 import {ActionObject} from 'amis-core';
 import Downshift, {StateChangeOptions} from 'downshift';
@@ -19,7 +20,7 @@ import {Spinner} from 'amis-ui';
 import {ActionSchema} from '../Action';
 import {FormOptionsSchema, SchemaApi} from '../../Schema';
 import {generateIcon} from 'amis-core';
-import {rendererEventDispatcher, bindRendererEvent} from 'amis-core';
+import {supportStatic} from './StaticHoc';
 
 import type {Option} from 'amis-core';
 import type {ListenerAction} from 'amis-core';
@@ -64,7 +65,12 @@ export interface TextControlSchema extends FormOptionsSchema {
   borderMode?: 'full' | 'half' | 'none';
 
   /**
-   * 限制文字个数
+   * 限制文字最小输入个数
+   */
+  minLength?: number;
+
+  /**
+   * 限制文字最大输入个数
    */
   maxLength?: number;
 
@@ -98,6 +104,9 @@ export interface TextControlSchema extends FormOptionsSchema {
 
   /** 原生input标签的CSS类名 */
   nativeInputClassName?: string;
+
+  /** 在内容为空的时候清除值 */
+  clearValueOnEmpty?: boolean;
 }
 
 export type InputTextRendererEvent =
@@ -295,8 +304,22 @@ export default class TextControl extends React.PureComponent<
     onChange(this.normalizeValue(newValue));
   }
 
-  @bindRendererEvent<TextProps, InputTextRendererEvent>('click')
-  handleClick() {
+  async handleClick() {
+    const {dispatchEvent, value} = this.props;
+    const rendererEvent = await dispatchEvent(
+      'click',
+      resolveEventData(
+        this.props,
+        {
+          value
+        },
+        'value'
+      )
+    );
+
+    if (rendererEvent?.prevented) {
+      return;
+    }
     // 已经 focus 的就不重复执行，否则总重新定位光标
     this.state.isFocused || this.focus();
     this.setState({
@@ -304,19 +327,33 @@ export default class TextControl extends React.PureComponent<
     });
   }
 
-  @bindRendererEvent<TextProps, InputTextRendererEvent>('focus')
-  handleFocus(e: any) {
+  async handleFocus(e: any) {
+    const {dispatchEvent, onFocus, value} = this.props;
     this.setState({
       isOpen: true,
       isFocused: true
     });
 
-    this.props.onFocus && this.props.onFocus(e);
+    const rendererEvent = await dispatchEvent(
+      'focus',
+      resolveEventData(
+        this.props,
+        {
+          value
+        },
+        'value'
+      )
+    );
+
+    if (rendererEvent?.prevented) {
+      return;
+    }
+
+    onFocus?.(e);
   }
 
-  @bindRendererEvent<TextProps, InputTextRendererEvent>('blur')
-  handleBlur(e: any) {
-    const {onBlur, trimContents, value, onChange} = this.props;
+  async handleBlur(e: any) {
+    const {onBlur, trimContents, value, onChange, dispatchEvent} = this.props;
 
     this.setState(
       {
@@ -329,18 +366,33 @@ export default class TextControl extends React.PureComponent<
       }
     );
 
+    const rendererEvent = await dispatchEvent(
+      'blur',
+      resolveEventData(
+        this.props,
+        {
+          value
+        },
+        'value'
+      )
+    );
+
+    if (rendererEvent?.prevented) {
+      return;
+    }
+
     onBlur && onBlur(e);
   }
 
   async handleInputChange(evt: React.ChangeEvent<HTMLInputElement>) {
     let value = this.transformValue(evt.currentTarget.value);
-    const {creatable, multiple, onChange} = this.props;
-    const dispatcher = await rendererEventDispatcher<
-      TextProps,
-      InputTextRendererEvent
-    >(this.props, 'change', {value});
+    const {creatable, multiple, onChange, dispatchEvent} = this.props;
+    const rendererEvent = await dispatchEvent(
+      'change',
+      resolveEventData(this.props, {value}, 'value')
+    );
 
-    if (dispatcher?.prevented) {
+    if (rendererEvent?.prevented) {
       return;
     }
 
@@ -359,7 +411,8 @@ export default class TextControl extends React.PureComponent<
   }
 
   async handleKeyDown(evt: React.KeyboardEvent<HTMLInputElement>) {
-    const {selectedOptions, onChange, multiple, creatable} = this.props;
+    const {selectedOptions, onChange, multiple, creatable, dispatchEvent} =
+      this.props;
 
     if (selectedOptions.length && !this.state.inputValue && evt.keyCode === 8) {
       evt.preventDefault();
@@ -397,12 +450,12 @@ export default class TextControl extends React.PureComponent<
         value = this.normalizeValue(newValue).concat();
       }
 
-      const dispatcher = await rendererEventDispatcher<
-        TextProps,
-        InputTextRendererEvent
-      >(this.props, 'enter', {value});
+      const rendererEvent = await dispatchEvent(
+        'enter',
+        resolveEventData(this.props, {value}, 'value')
+      );
 
-      if (dispatcher?.prevented) {
+      if (rendererEvent?.prevented) {
         return;
       }
 
@@ -500,18 +553,29 @@ export default class TextControl extends React.PureComponent<
 
   @autobind
   async handleNormalInputChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const {onChange} = this.props;
-    let value = e.currentTarget.value;
-    const dispatcher = await rendererEventDispatcher<
-      TextProps,
-      InputTextRendererEvent
-    >(this.props, 'change', {value: this.transformValue(value)});
+    const {onChange, dispatchEvent, trimContents, clearValueOnEmpty} =
+      this.props;
+    let value: string | undefined = this.transformValue(e.currentTarget.value);
+    if (typeof value === 'string') {
+      if (trimContents) {
+        value = value.trim();
+      }
 
-    if (dispatcher?.prevented) {
+      if (clearValueOnEmpty && value === '') {
+        value = undefined;
+      }
+    }
+
+    const rendererEvent = await dispatchEvent(
+      'change',
+      resolveEventData(this.props, {value}, 'value')
+    );
+
+    if (rendererEvent?.prevented) {
       return;
     }
 
-    onChange(this.transformValue(value));
+    onChange(value);
   }
 
   normalizeValue(value: Option[] | Option | undefined | null) {
@@ -581,6 +645,8 @@ export default class TextControl extends React.PureComponent<
       ? ''
       : typeof value === 'string'
       ? value
+      : value instanceof Date
+      ? value.toISOString()
       : JSON.stringify(value);
   }
 
@@ -608,6 +674,7 @@ export default class TextControl extends React.PureComponent<
       borderMode,
       showCounter,
       maxLength,
+      minLength,
       translate: __
     } = this.props;
     let type = this.props.type?.replace(/^(?:native|input)\-/, '');
@@ -711,7 +778,9 @@ export default class TextControl extends React.PureComponent<
                     onFocus: this.handleFocus,
                     onBlur: this.handleBlur,
                     onChange: this.handleInputChange,
-                    onKeyDown: this.handleKeyDown
+                    onKeyDown: this.handleKeyDown,
+                    maxLength,
+                    minLength
                   })}
                   autoComplete="off"
                   size={10}
@@ -818,7 +887,8 @@ export default class TextControl extends React.PureComponent<
       suffix,
       data,
       showCounter,
-      maxLength
+      maxLength,
+      minLength
     } = this.props;
 
     const type = this.props.type?.replace(/^(?:native|input)\-/, '');
@@ -850,6 +920,8 @@ export default class TextControl extends React.PureComponent<
           onBlur={this.handleBlur}
           max={max}
           min={min}
+          maxLength={maxLength}
+          minLength={minLength}
           autoComplete="off"
           size={10}
           step={step}
@@ -892,19 +964,17 @@ export default class TextControl extends React.PureComponent<
     );
   }
 
-  render(): JSX.Element {
+  renderBody(body: JSX.Element) {
     const {
       classnames: cx,
       className,
       classPrefix: ns,
-      options,
-      source,
-      autoComplete,
       addOn: addOnRaw,
       render,
       data,
       disabled,
-      inputOnly
+      inputOnly,
+      static: isStatic
     } = this.props;
 
     const addOn: any =
@@ -915,14 +985,9 @@ export default class TextControl extends React.PureComponent<
           }
         : addOnRaw;
 
-    let input =
-      autoComplete !== false && (source || options.length || autoComplete)
-        ? this.renderSugestMode()
-        : this.renderNormal();
-
     const iconElement = generateIcon(cx, addOn?.icon, 'Icon');
 
-    let addOnDom = addOn ? (
+    let addOnDom = addOn && !isStatic ? (
       addOn.actionType ||
       ~['button', 'submit', 'reset', 'action'].indexOf(addOn.type) ? (
         <div className={cx(`${ns}TextControl-button`, addOn.className)}>
@@ -939,22 +1004,41 @@ export default class TextControl extends React.PureComponent<
     ) : null;
 
     if (inputOnly) {
-      return input;
+      return body;
     }
 
-    return (
-      <div
-        className={cx(className, `${ns}TextControl`, {
+    const classNames = !isStatic
+      ? cx(className, `${ns}TextControl`, {
           [`${ns}TextControl--withAddOn`]: !!addOnDom,
           'is-focused': this.state.isFocused,
           'is-disabled': disabled
-        })}
-      >
+        }) 
+      : cx(`${ns}TextControl`, {
+        [`${ns}TextControl--withAddOn`]: !!addOnDom
+      });
+
+    return (
+      <div className={classNames}>
         {addOn && addOn.position === 'left' ? addOnDom : null}
-        {input}
+        {body}
         {addOn && addOn.position !== 'left' ? addOnDom : null}
       </div>
     );
+  }
+
+  @supportStatic()
+  render(): JSX.Element {
+    const {
+      options,
+      source,
+      autoComplete,
+    } = this.props;
+
+    let input = autoComplete !== false && (source || options?.length || autoComplete)
+      ? this.renderSugestMode()
+      : this.renderNormal();
+    
+    return this.renderBody(input);
   }
 }
 
